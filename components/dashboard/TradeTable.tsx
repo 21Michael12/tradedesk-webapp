@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Trade } from '@/types'
 import { formatPnl } from '@/lib/futures'
+import DeleteTradeButton from '@/components/trades/DeleteTradeButton'
 
 interface TradeTableProps {
   trades: Trade[]
@@ -174,15 +175,21 @@ export default function TradeTable({ trades }: TradeTableProps) {
                     </Link>
                   </td>
 
-                  {/* Actions (hover-reveal) */}
-                  <td className="p-3 text-left opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Link
-                      href={`/trades/${trade.id}/edit`}
-                      aria-label="ערוך עסקה"
-                      className="text-on-surface-variant hover:text-primary-container transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-sm">edit</span>
-                    </Link>
+                  {/* Actions */}
+                  <td className="p-3 text-left">
+                    <div className="flex items-center justify-end gap-3">
+                      <Link
+                        href={`/trades/${trade.id}/edit`}
+                        aria-label="ערוך עסקה"
+                        className="text-on-surface-variant hover:text-primary-container transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                      </Link>
+                      <DeleteTradeButton
+                        tradeId={trade.id}
+                        tradeLabel={`${trade.symbol} • ${new Date(trade.entry_time).toLocaleDateString('he-IL')}`}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

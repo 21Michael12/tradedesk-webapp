@@ -11,6 +11,7 @@ import {
   HEBREW_MONTHS,
 } from '@/lib/metrics'
 import type { Trade, Account } from '@/types'
+import { formatDollar } from '@/lib/futures'
 import StatsGrid        from '@/components/dashboard/StatsGrid'
 import PerformanceChart from '@/components/dashboard/PerformanceChart'
 import CalendarGrid     from '@/components/dashboard/CalendarGrid'
@@ -114,6 +115,28 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <>
+      {/* Blown account banner */}
+      {mllStatus?.isBlown && account && (
+        <section className="bg-error/10 border border-error/40 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <span className="material-symbols-outlined text-error text-2xl flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>
+            warning
+          </span>
+          <div className="flex-1">
+            <h3 className="font-title-sm text-title-sm text-error">החשבון "{account.name}" נשרף</h3>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">
+              היתרה הנוכחית ({formatDollar(mllStatus.currentBalance)}) ירדה מתחת ל־MLL ({formatDollar(mllStatus.currentMll)}).
+              ניתן לשחזר את החשבון על ידי עריכה או מחיקה של טריידים מפסידים.
+            </p>
+          </div>
+          <a
+            href="/journal"
+            className="bg-error/20 text-error border border-error/40 font-label-caps text-label-caps px-3 py-2 rounded transition-colors hover:bg-error/30 whitespace-nowrap"
+          >
+            עבור ליומן
+          </a>
+        </section>
+      )}
+
       {/* Top action bar */}
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container p-4 rounded-lg border border-outline-variant">
         <div className="flex items-center gap-3">

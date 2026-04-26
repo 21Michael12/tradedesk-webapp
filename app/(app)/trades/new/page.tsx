@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import TradeForm from '@/components/trades/TradeForm'
 import type { TradeFormProps } from '@/components/trades/TradeForm'
 import { calculateTradePnl, getMultiplier } from '@/lib/futures'
+import { calculateMllStatus } from '@/lib/metrics'
+import type { Trade } from '@/types'
 
 export const metadata = { title: 'TradeDesk | עסקה חדשה' }
 
@@ -16,7 +18,7 @@ export default async function NewTradePage() {
 
   const { data: accounts } = await supabase
     .from('accounts')
-    .select('id, is_active, created_at')
+    .select('id, is_active, portfolio_size, starting_mll, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -24,6 +26,18 @@ export default async function NewTradePage() {
     (accounts ?? []).find((a) => a.is_active) ?? (accounts ?? [])[0] ?? null
 
   if (!account) redirect('/accounts')
+
+  // Block trade creation when the active account is blown
+  const { data: rawTrades } = await supabase
+    .from('trades')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('account_id', account.id)
+
+  const accountTrades = (rawTrades as Trade[] | null) ?? []
+  const mllStatus = calculateMllStatus(accountTrades, account.portfolio_size, account.starting_mll)
+
+  if (mllStatus.isBlown) redirect('/dashboard')
 
   const action: TradeFormProps['action'] = async (values) => {
     'use server'

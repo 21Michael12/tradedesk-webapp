@@ -9,6 +9,7 @@ import type { Account } from '@/types'
 
 interface TopNavProps {
   accounts: Account[]
+  addTradeDisabled?: boolean
 }
 
 const navItems = [
@@ -20,7 +21,7 @@ const navItems = [
   { href: '/help',       icon: 'help',                   label: 'עזרה'      },
 ]
 
-export default function TopNav({ accounts }: TopNavProps) {
+export default function TopNav({ accounts, addTradeDisabled = false }: TopNavProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const router   = useRouter()
   const supabase = createClient()
@@ -83,19 +84,31 @@ export default function TopNav({ accounts }: TopNavProps) {
                 </div>
               )}
 
-              <Link
-                href="/trades/new"
-                onClick={() => setMenuOpen(false)}
-                className="mx-4 mb-4 bg-primary-container text-on-primary-container font-title-sm text-title-sm py-2 px-4 rounded-DEFAULT flex items-center justify-center gap-2 hover:bg-primary-fixed transition-colors"
-              >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
+              {addTradeDisabled ? (
+                <div
+                  className="mx-4 mb-4 bg-error/10 text-error border border-error/30 font-title-sm text-title-sm py-2 px-4 rounded-DEFAULT flex items-center justify-center gap-2 cursor-not-allowed"
+                  aria-disabled="true"
                 >
-                  add
-                </span>
-                הוסף טרייד
-              </Link>
+                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    block
+                  </span>
+                  חשבון נשרף
+                </div>
+              ) : (
+                <Link
+                  href="/trades/new"
+                  onClick={() => setMenuOpen(false)}
+                  className="mx-4 mb-4 bg-primary-container text-on-primary-container font-title-sm text-title-sm py-2 px-4 rounded-DEFAULT flex items-center justify-center gap-2 hover:bg-primary-fixed transition-colors"
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                  >
+                    add
+                  </span>
+                  הוסף טרייד
+                </Link>
+              )}
 
               <ul className="flex flex-col gap-1">
                 {navItems.map(({ href, icon, label }) => (

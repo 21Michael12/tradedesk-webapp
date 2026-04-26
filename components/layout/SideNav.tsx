@@ -9,6 +9,7 @@ import type { Account } from '@/types'
 
 interface SideNavProps {
   accounts: Account[]
+  addTradeDisabled?: boolean
 }
 
 const navItems = [
@@ -23,7 +24,7 @@ const footerItems = [
   { href: '/help', icon: 'help', label: 'עזרה' },
 ]
 
-export default function SideNav({ accounts }: SideNavProps) {
+export default function SideNav({ accounts, addTradeDisabled = false }: SideNavProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createClient()
@@ -51,18 +52,31 @@ export default function SideNav({ accounts }: SideNavProps) {
             AbraTech IL
           </p>
         </div>
-        <Link
-          href="/trades/new"
-          className="mt-4 w-full bg-primary-container text-on-primary-container font-title-sm text-title-sm py-2 px-4 rounded-DEFAULT flex items-center justify-center gap-2 hover:bg-primary-fixed transition-colors"
-        >
-          <span
-            className="material-symbols-outlined"
-            style={{ fontVariationSettings: "'FILL' 1" }}
+        {addTradeDisabled ? (
+          <div
+            className="mt-4 w-full bg-error/10 text-error border border-error/30 font-title-sm text-title-sm py-2 px-4 rounded-DEFAULT flex items-center justify-center gap-2 cursor-not-allowed"
+            title="החשבון נשרף. שחזר אותו לפני הוספת טרייד."
+            aria-disabled="true"
           >
-            add
-          </span>
-          הוסף טרייד
-        </Link>
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+              block
+            </span>
+            חשבון נשרף
+          </div>
+        ) : (
+          <Link
+            href="/trades/new"
+            className="mt-4 w-full bg-primary-container text-on-primary-container font-title-sm text-title-sm py-2 px-4 rounded-DEFAULT flex items-center justify-center gap-2 hover:bg-primary-fixed transition-colors"
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              add
+            </span>
+            הוסף טרייד
+          </Link>
+        )}
       </div>
 
       {/* Account Switcher */}

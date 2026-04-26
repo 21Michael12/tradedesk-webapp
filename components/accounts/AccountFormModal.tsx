@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import type { AccountType } from '@/types'
+import type { Account, AccountType } from '@/types'
 
-export interface CreateAccountValues {
+export interface AccountFormValues {
   name: string
   account_type: AccountType
   portfolio_size: number
@@ -12,8 +12,10 @@ export interface CreateAccountValues {
   prop_firm_name: string | null
 }
 
-interface CreateAccountModalProps {
-  action: (values: CreateAccountValues) => Promise<{ error?: string } | void>
+interface AccountFormModalProps {
+  mode: 'create' | 'edit'
+  initialAccount?: Account
+  action: (values: AccountFormValues) => Promise<{ error?: string } | void>
 }
 
 const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
@@ -30,24 +32,24 @@ function inputCls(hasError = false) {
   ].join(' ')
 }
 
-export default function CreateAccountModal({ action }: CreateAccountModalProps) {
+export default function AccountFormModal({ mode, initialAccount, action }: AccountFormModalProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const [name, setName]                   = useState('')
-  const [accountType, setAccountType]     = useState<AccountType>('demo')
-  const [portfolioSize, setPortfolioSize] = useState('')
-  const [startingMll, setStartingMll]     = useState('')
-  const [propFirmName, setPropFirmName]   = useState('')
+  const [name, setName]                   = useState(initialAccount?.name ?? '')
+  const [accountType, setAccountType]     = useState<AccountType>(initialAccount?.account_type ?? 'demo')
+  const [portfolioSize, setPortfolioSize] = useState(initialAccount ? String(initialAccount.portfolio_size) : '')
+  const [startingMll, setStartingMll]     = useState(initialAccount ? String(initialAccount.starting_mll) : '')
+  const [propFirmName, setPropFirmName]   = useState(initialAccount?.prop_firm_name ?? '')
 
   function reset() {
-    setName('')
-    setAccountType('demo')
-    setPortfolioSize('')
-    setStartingMll('')
-    setPropFirmName('')
+    setName(initialAccount?.name ?? '')
+    setAccountType(initialAccount?.account_type ?? 'demo')
+    setPortfolioSize(initialAccount ? String(initialAccount.portfolio_size) : '')
+    setStartingMll(initialAccount ? String(initialAccount.starting_mll) : '')
+    setPropFirmName(initialAccount?.prop_firm_name ?? '')
     setError(null)
   }
 
@@ -86,14 +88,21 @@ export default function CreateAccountModal({ action }: CreateAccountModalProps) 
     })
   }
 
+  const triggerCls =
+    mode === 'create'
+      ? 'bg-primary-container text-on-primary-container font-title-sm text-title-sm py-2 px-4 rounded-DEFAULT flex items-center gap-2 hover:bg-primary-fixed transition-colors'
+      : 'flex-1 text-on-surface-variant hover:text-primary-container hover:bg-surface-container-high border border-outline-variant rounded-DEFAULT py-2 font-label-caps text-label-caps transition-colors flex items-center justify-center gap-1'
+
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="bg-primary-container text-on-primary-container font-title-sm text-title-sm py-2 px-4 rounded-DEFAULT flex items-center gap-2 hover:bg-primary-fixed transition-colors"
-      >
-        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
-        הוסף חשבון
+      <button onClick={() => setOpen(true)} className={triggerCls}>
+        <span
+          className="material-symbols-outlined text-base"
+          style={mode === 'create' ? { fontVariationSettings: "'FILL' 1" } : undefined}
+        >
+          {mode === 'create' ? 'add' : 'edit'}
+        </span>
+        {mode === 'create' ? 'הוסף חשבון' : 'ערוך'}
       </button>
 
       {open && (
@@ -101,7 +110,9 @@ export default function CreateAccountModal({ action }: CreateAccountModalProps) 
           <div className="absolute inset-0 bg-black/60" onClick={close} />
           <div className="relative bg-surface-container border border-outline-variant rounded-lg w-full max-w-[32rem] max-h-[90vh] overflow-y-auto z-10">
             <div className="flex items-center justify-between p-4 border-b border-outline-variant">
-              <h3 className="font-title-md text-title-md text-on-surface">חשבון חדש</h3>
+              <h3 className="font-title-md text-title-md text-on-surface">
+                {mode === 'create' ? 'חשבון חדש' : 'עריכת חשבון'}
+              </h3>
               <button
                 onClick={close}
                 aria-label="סגור"
@@ -202,7 +213,7 @@ export default function CreateAccountModal({ action }: CreateAccountModalProps) 
                   disabled={isPending}
                   className="bg-primary-container text-on-primary-container font-title-sm text-title-sm py-2 px-4 rounded-DEFAULT hover:bg-primary-fixed transition-colors disabled:opacity-50"
                 >
-                  {isPending ? 'שומר...' : 'שמור חשבון'}
+                  {isPending ? 'שומר...' : mode === 'create' ? 'שמור חשבון' : 'עדכן חשבון'}
                 </button>
               </div>
             </form>

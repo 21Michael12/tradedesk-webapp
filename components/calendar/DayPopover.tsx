@@ -50,7 +50,7 @@ export default function DayCell({ date, dayOfMonth, pnl, isToday, trades }: DayP
         type="button"
         disabled={!hasTrades}
         onClick={() => hasTrades && setOpen(true)}
-        className={`relative rounded flex flex-col items-center justify-center p-1 border aspect-square transition-colors ${pnlBg(pnl)} ${isToday ? 'ring-1 ring-primary-container' : ''} ${hasTrades ? 'cursor-pointer' : 'cursor-default'}`}
+        className={`relative rounded flex flex-col items-center justify-center p-1 border aspect-[5/4] transition-colors ${pnlBg(pnl)} ${isToday ? 'ring-1 ring-primary-container' : ''} ${hasTrades ? 'cursor-pointer' : 'cursor-default'}`}
       >
         <span className={`font-data-mono text-xs ${isToday ? 'font-bold text-primary-container' : 'text-on-surface'}`}>
           {dayOfMonth}

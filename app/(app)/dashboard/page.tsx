@@ -37,8 +37,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { accountId } = await searchParams
   const supabase = await createClient()
 
-  // ── Fetch accounts + trades in parallel ────────────────────────────────
-  const [{ data: rawAccounts }, { data: rawTrades }] = await Promise.all([
+  // ── Fetch accounts + trades + settings in parallel ─────────────────────
+  const [{ data: rawAccounts }, { data: rawTrades }, { data: rawSettings }] = await Promise.all([
     supabase
       .from('accounts')
       .select('*')
@@ -48,6 +48,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .select('*')
       .order('entry_time', { ascending: false })
       .limit(500),
+    supabase
+      .from('user_settings')
+      .select('daily_loss_warning')
+      .maybeSingle(),
   ])
 
   const allAccounts: Account[] = (rawAccounts as Account[] | null) ?? []
@@ -103,6 +107,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const calendarDays = buildMonthCalendar(now.getFullYear(), now.getMonth(), pnlByDate)
   const streakDays   = getCurrentStreak(pnlByDate)
 
+  // ── Today's P&L vs daily-loss warning threshold ───────────────────────────
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const todayPnl = pnlByDate.get(todayKey) ?? 0
+  const dailyLossWarning = Number(rawSettings?.daily_loss_warning ?? 0)
+  const dailyLossBreached = dailyLossWarning > 0 && todayPnl <= -dailyLossWarning
+
   // ── Recent trades ─────────────────────────────────────────────────────────
   const recentTrades = trades.slice(0, 5)
 
@@ -111,6 +121,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <>
+      {/* Daily loss warning banner */}
+      {dailyLossBreached && (
+        <section className="bg-error/10 border border-error/40 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <span className="material-symbols-outlined text-error text-2xl flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>
+            warning
+          </span>
+          <div className="flex-1">
+            <h3 className="font-title-sm text-title-sm text-error">חצית את סף ההפסד היומי</h3>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">
+              הפסד היום: {formatDollar(Math.abs(todayPnl))} • הסף שהגדרת: {formatDollar(dailyLossWarning)}.
+              שקול לעצור למסחר היום.
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* Blown account banner */}
       {mllStatus?.isBlown && account && (
         <section className="bg-error/10 border border-error/40 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -145,26 +171,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               {account.name}
             </span>
           )}
-        </div>
-        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          <div className="flex items-center bg-background border border-outline-variant rounded-DEFAULT p-1 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-48">
-              <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">
-                search
-              </span>
-              <input
-                className="w-full bg-transparent border-none text-on-surface font-body-sm text-sm focus:ring-0 pl-2 pr-8 py-1.5 placeholder:text-on-surface-variant/50"
-                placeholder="חיפוש בתיאור..."
-                type="text"
-                readOnly
-              />
-            </div>
-            <div className="w-px h-5 bg-outline-variant mx-2" />
-            <button className="flex items-center gap-1 text-on-surface-variant hover:text-primary-container px-2 py-1.5 transition-colors">
-              <span className="material-symbols-outlined text-sm">filter_list</span>
-              <span className="font-body-sm text-sm">תגיות</span>
-            </button>
-          </div>
         </div>
       </header>
 

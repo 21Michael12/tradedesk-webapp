@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase/server'
 import type { FuturesSymbol } from '@/types'
 
 export interface UserSettings {
-  default_symbol:     FuturesSymbol
-  default_commission: number
+  default_symbol:      FuturesSymbol
+  default_commission:  number
+  daily_loss_warning:  number
 }
 
 export async function saveUserSettings(values: UserSettings) {
@@ -23,6 +24,7 @@ export async function saveUserSettings(values: UserSettings) {
         user_id:            user.id,
         default_symbol:     values.default_symbol,
         default_commission: values.default_commission,
+        daily_loss_warning: values.daily_loss_warning,
       },
       { onConflict: 'user_id' }
     )
@@ -30,4 +32,5 @@ export async function saveUserSettings(values: UserSettings) {
   if (error) return { error: `שגיאה בשמירת ההגדרות: ${error.message}` }
   revalidatePath('/settings')
   revalidatePath('/trades/new')
+  revalidatePath('/dashboard')
 }

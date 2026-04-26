@@ -1,6 +1,6 @@
 export type TradeDirection = 'long' | 'short'
 export type TradeType      = 'daytrade' | 'swing'
-export type AccountType    = 'demo' | 'funded' | 'live'
+export type AccountType    = 'EVAL' | 'FUNDED' | 'LIVE_EXPRESS'
 export type DrawdownType   = 'trailing' | 'end_of_day'
 
 export type FuturesSymbol = 'NQ' | 'MNQ' | 'ES' | 'MES'

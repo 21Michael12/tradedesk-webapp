@@ -167,7 +167,7 @@ export default function StatsGrid({
               </span>
               <div>
                 <h3 className="font-title-sm text-title-sm text-on-surface">
-                  {account?.account_type === 'funded' ? 'Trailing MLL — Prop Firm' : 'מעקב Trailing MLL'}
+                  {account?.account_type === 'FUNDED' ? 'Trailing MLL — Prop Firm' : 'מעקב Trailing MLL'}
                 </h3>
                 <p className="font-body-sm text-body-sm text-on-surface-variant opacity-70">
                   {account?.prop_firm_name ? `${account.prop_firm_name} • ` : ''}

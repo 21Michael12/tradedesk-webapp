@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import SettingsForm from '@/components/settings/SettingsForm'
+import DangerZone   from '@/components/settings/DangerZone'
 import type { UserSettings } from '@/lib/actions/settings'
 import type { FuturesSymbol } from '@/types'
 
@@ -10,6 +11,7 @@ export const metadata = { title: 'TradeDesk | הגדרות' }
 const DEFAULT_SETTINGS: UserSettings = {
   default_symbol:     'NQ',
   default_commission: 0,
+  daily_loss_warning: 0,
 }
 
 export default async function SettingsPage() {
@@ -21,7 +23,7 @@ export default async function SettingsPage() {
 
   const { data: row } = await supabase
     .from('user_settings')
-    .select('default_symbol, default_commission')
+    .select('default_symbol, default_commission, daily_loss_warning')
     .eq('user_id', user.id)
     .maybeSingle()
 
@@ -29,22 +31,21 @@ export default async function SettingsPage() {
     ? {
         default_symbol:     (row.default_symbol as FuturesSymbol) ?? 'NQ',
         default_commission: Number(row.default_commission ?? 0),
+        daily_loss_warning: Number(row.daily_loss_warning ?? 0),
       }
     : DEFAULT_SETTINGS
 
   return (
     <>
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container p-4 rounded-lg border border-outline-variant">
-        <div className="flex items-center gap-3">
-          <h2 className="font-headline-md text-headline-md text-on-surface">הגדרות</h2>
-        </div>
+        <h2 className="font-headline-md text-headline-md text-on-surface">הגדרות</h2>
       </header>
 
       <SettingsForm initial={settings} />
 
       <section className="bg-surface-container rounded-lg border border-outline-variant p-5 flex flex-col gap-4">
         <header>
-          <h3 className="font-title-md text-title-md text-on-surface">ייצוא נתונים</h3>
+          <h3 className="font-title-md text-title-md text-on-surface">ניהול נתונים</h3>
           <p className="font-body-sm text-body-sm text-on-surface-variant opacity-70 mt-1">
             הורד את כל הטריידים שלך כקובץ CSV. תומך ב־Excel וב־Google Sheets.
           </p>
@@ -60,6 +61,8 @@ export default async function SettingsPage() {
           </a>
         </div>
       </section>
+
+      <DangerZone />
     </>
   )
 }

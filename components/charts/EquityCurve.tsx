@@ -113,6 +113,31 @@ export default function EquityCurve({
 
   const profitTarget = account?.profit_target ?? null
 
+  // Y-axis: strict $1,000 increments. Domain anchored on the active account's
+  // starting balance and Trailing MLL plus the actual data range.
+  const { yMin, yMax, yTicks } = useMemo(() => {
+    const STEP = 1000
+    if (isEmpty || !account) {
+      return { yMin: 0, yMax: 0, yTicks: [] as number[] }
+    }
+    const balanceVals = data.map((d) => d.balance)
+    const mllVals     = data.map((d) => d.mll)
+    const candidates  = [
+      ...balanceVals,
+      ...mllVals,
+      account.portfolio_size,
+      account.starting_mll,
+      ...(profitTarget != null ? [profitTarget] : []),
+    ]
+    const rawMin = Math.min(...candidates)
+    const rawMax = Math.max(...candidates)
+    const min = Math.floor(rawMin / STEP) * STEP
+    const max = Math.ceil(rawMax / STEP) * STEP
+    const ticks: number[] = []
+    for (let v = min; v <= max; v += STEP) ticks.push(v)
+    return { yMin: min, yMax: max, yTicks: ticks }
+  }, [data, isEmpty, account, profitTarget])
+
   return (
     <section className="bg-surface-container rounded-lg border border-outline-variant flex flex-col">
       <div className="p-4 border-b border-outline-variant flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -160,11 +185,14 @@ export default function EquityCurve({
                 tick={{ fontSize: 11 }}
               />
               <YAxis
-                domain={['auto', 'auto']}
+                domain={[yMin, yMax]}
+                ticks={yTicks}
+                interval={0}
                 stroke="rgba(148, 163, 184, 0.6)"
                 tick={{ fontSize: 11 }}
-                tickFormatter={(v) => `$${(Number(v) / 1000).toFixed(1)}k`}
-                width={64}
+                tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`}
+                width={56}
+                allowDecimals={false}
               />
               <Tooltip content={<ChartTooltip />} />
               <Legend

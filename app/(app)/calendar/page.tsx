@@ -130,14 +130,14 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
         title="עקומת הון — חשבון פעיל"
       />
 
-      <section className="bg-surface-container rounded-lg border border-outline-variant flex flex-col">
+      <section className="bg-surface-container rounded-lg border border-outline-variant flex flex-col w-full max-w-3xl mx-auto">
         <div className="p-4 border-b border-outline-variant flex items-center gap-2">
           <span className="material-symbols-outlined text-lg opacity-80">calendar_month</span>
           <h3 className="font-title-sm text-title-sm text-on-surface">{monthLabel}</h3>
         </div>
 
         <div className="p-4">
-          <div className="grid grid-cols-5 gap-2 text-center mb-2">
+          <div className="grid grid-cols-5 gap-1.5 text-center mb-2">
             {WEEKDAY_LABELS.map((label) => (
               <span key={label} className="font-label-caps text-on-surface-variant text-[10px]">
                 {label}
@@ -150,9 +150,9 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
               אין נתונים לחודש זה
             </p>
           ) : (
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-5 gap-1.5">
               {Array.from({ length: firstDow }).map((_, i) => (
-                <div key={`pad-${i}`} className="aspect-square" />
+                <div key={`pad-${i}`} className="aspect-[5/4]" />
               ))}
               {calendarDays.map((day) => (
                 <DayCell

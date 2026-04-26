@@ -19,9 +19,9 @@ interface AccountFormModalProps {
 }
 
 const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
-  { value: 'demo',   label: 'דמו' },
-  { value: 'live',   label: 'לייב' },
-  { value: 'funded', label: 'מממן (Prop Firm)' },
+  { value: 'EVAL',         label: 'תיק מבחן (Eval)' },
+  { value: 'FUNDED',       label: 'ממומן (Funded)' },
+  { value: 'LIVE_EXPRESS', label: 'לייב / אקספרס (Live / Express)' },
 ]
 
 function inputCls(hasError = false) {
@@ -39,14 +39,14 @@ export default function AccountFormModal({ mode, initialAccount, action }: Accou
   const [error, setError] = useState<string | null>(null)
 
   const [name, setName]                   = useState(initialAccount?.name ?? '')
-  const [accountType, setAccountType]     = useState<AccountType>(initialAccount?.account_type ?? 'demo')
+  const [accountType, setAccountType]     = useState<AccountType>(initialAccount?.account_type ?? 'EVAL')
   const [portfolioSize, setPortfolioSize] = useState(initialAccount ? String(initialAccount.portfolio_size) : '')
   const [startingMll, setStartingMll]     = useState(initialAccount ? String(initialAccount.starting_mll) : '')
   const [propFirmName, setPropFirmName]   = useState(initialAccount?.prop_firm_name ?? '')
 
   function reset() {
     setName(initialAccount?.name ?? '')
-    setAccountType(initialAccount?.account_type ?? 'demo')
+    setAccountType(initialAccount?.account_type ?? 'EVAL')
     setPortfolioSize(initialAccount ? String(initialAccount.portfolio_size) : '')
     setStartingMll(initialAccount ? String(initialAccount.starting_mll) : '')
     setPropFirmName(initialAccount?.prop_firm_name ?? '')
@@ -69,7 +69,7 @@ export default function AccountFormModal({ mode, initialAccount, action }: Accou
     if (!Number.isFinite(size) || size <= 0)              return setError('גודל תיק חייב להיות מספר חיובי')
     if (!Number.isFinite(mll) || mll <= 0)                return setError('Starting MLL חייב להיות מספר חיובי')
     if (mll >= size)                                       return setError('Starting MLL חייב להיות נמוך מגודל התיק')
-    if (accountType === 'funded' && !propFirmName.trim()) return setError('חשבון מממן דורש שם חברה')
+    if (accountType === 'FUNDED' && !propFirmName.trim()) return setError('חשבון מממן דורש שם חברה')
 
     startTransition(async () => {
       const result = await action({
@@ -77,7 +77,7 @@ export default function AccountFormModal({ mode, initialAccount, action }: Accou
         account_type: accountType,
         portfolio_size: size,
         starting_mll: mll,
-        prop_firm_name: accountType === 'funded' ? propFirmName.trim() : null,
+        prop_firm_name: accountType === 'FUNDED' ? propFirmName.trim() : null,
       })
       if (result && 'error' in result && result.error) {
         setError(result.error)
@@ -148,7 +148,7 @@ export default function AccountFormModal({ mode, initialAccount, action }: Accou
                 </select>
               </div>
 
-              {accountType === 'funded' && (
+              {accountType === 'FUNDED' && (
                 <div className="flex flex-col gap-1.5">
                   <label className="font-label-caps text-label-caps text-on-surface-variant">שם חברת המימון</label>
                   <input

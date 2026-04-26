@@ -9,15 +9,15 @@ interface AccountSwitcherProps {
 }
 
 const TYPE_LABELS: Record<AccountType, string> = {
-  funded: 'מממן',
-  live:   'לייב',
-  demo:   'דמו',
+  EVAL:         'מבחן',
+  FUNDED:       'ממומן',
+  LIVE_EXPRESS: 'לייב',
 }
 
 const TYPE_COLORS: Record<AccountType, string> = {
-  funded: 'text-tertiary border-tertiary/40 bg-tertiary/10',
-  live:   'text-success border-success/40 bg-success/10',
-  demo:   'text-on-surface-variant border-outline-variant/60 bg-surface-variant/40',
+  EVAL:         'text-on-surface-variant border-outline-variant/60 bg-surface-variant/40',
+  FUNDED:       'text-tertiary border-tertiary/40 bg-tertiary/10',
+  LIVE_EXPRESS: 'text-success border-success/40 bg-success/10',
 }
 
 export default function AccountSwitcher({ accounts }: AccountSwitcherProps) {

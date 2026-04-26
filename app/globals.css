@@ -1,26 +1,155 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Class-based dark mode (html.dark) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   DEEP SLATE PRECISION — Design Token Theme
+   ============================================================ */
+@theme {
+  /* --- Colors --- */
+  --color-background:                #0b1326;
+  --color-on-background:             #dae2fd;
+  --color-surface:                   #0b1326;
+  --color-surface-dim:               #0b1326;
+  --color-surface-bright:            #31394d;
+  --color-surface-container-lowest:  #060e20;
+  --color-surface-container-low:     #131b2e;
+  --color-surface-container:         #171f33;
+  --color-surface-container-high:    #222a3d;
+  --color-surface-container-highest: #2d3449;
+  --color-surface-variant:           #2d3449;
+  --color-surface-tint:              #98cbff;
+  --color-on-surface:                #dae2fd;
+  --color-on-surface-variant:        #bec7d4;
+  --color-inverse-surface:           #dae2fd;
+  --color-inverse-on-surface:        #283044;
+  --color-outline:                   #88919d;
+  --color-outline-variant:           #3f4852;
+
+  --color-primary:                   #98cbff;
+  --color-on-primary:                #003354;
+  --color-primary-container:         #00a3ff;
+  --color-on-primary-container:      #00375a;
+  --color-inverse-primary:           #00629d;
+  --color-primary-fixed:             #cfe5ff;
+  --color-primary-fixed-dim:         #98cbff;
+  --color-on-primary-fixed:          #001d33;
+  --color-on-primary-fixed-variant:  #004a77;
+
+  --color-secondary:                 #b7c8e1;
+  --color-on-secondary:              #213145;
+  --color-secondary-container:       #3a4a5f;
+  --color-on-secondary-container:    #a9bad3;
+  --color-secondary-fixed:           #d3e4fe;
+  --color-secondary-fixed-dim:       #b7c8e1;
+  --color-on-secondary-fixed:        #0b1c30;
+  --color-on-secondary-fixed-variant:#38485d;
+
+  --color-tertiary:                  #ffb77d;
+  --color-on-tertiary:               #4d2600;
+  --color-tertiary-container:        #eb8104;
+  --color-on-tertiary-container:     #522900;
+  --color-tertiary-fixed:            #ffdcc3;
+  --color-tertiary-fixed-dim:        #ffb77d;
+  --color-on-tertiary-fixed:         #2f1500;
+  --color-on-tertiary-fixed-variant: #6e3900;
+
+  --color-error:                     #ffb4ab;
+  --color-on-error:                  #690005;
+  --color-error-container:           #93000a;
+  --color-on-error-container:        #ffdad6;
+
+  --color-success:                   #10b981;
+  --color-danger:                    #ef4444;
+
+  /* --- Spacing --- */
+  --spacing-xs:     4px;
+  --spacing-sm:     8px;
+  --spacing-md:     16px;
+  --spacing-lg:     24px;
+  --spacing-xl:     48px;
+  --spacing-base:   4px;
+  --spacing-gutter: 16px;
+  --spacing-margin: 24px;
+
+  /* --- Border Radius --- */
+  --radius:      0.125rem;
+  --radius-lg:   0.25rem;
+  --radius-xl:   0.5rem;
+  --radius-full: 0.75rem;
+
+  /* --- Font Families --- */
+  --font-display-lg:  var(--font-public-sans), "Public Sans", sans-serif;
+  --font-headline-md: var(--font-public-sans), "Public Sans", sans-serif;
+  --font-title-sm:    var(--font-public-sans), "Public Sans", sans-serif;
+  --font-body-md:     var(--font-public-sans), "Public Sans", sans-serif;
+  --font-body-sm:     var(--font-public-sans), "Public Sans", sans-serif;
+  --font-label-caps:  var(--font-public-sans), "Public Sans", sans-serif;
+  --font-data-mono:   var(--font-inter), "Inter", ui-monospace, monospace;
+
+  /* --- Font Sizes (compound: size / line-height / letter-spacing / weight) --- */
+  --text-display-lg:                  48px;
+  --text-display-lg--line-height:     1.1;
+  --text-display-lg--letter-spacing:  -0.02em;
+  --text-display-lg--font-weight:     600;
+
+  --text-headline-md:                 24px;
+  --text-headline-md--line-height:    1.2;
+  --text-headline-md--letter-spacing: -0.01em;
+  --text-headline-md--font-weight:    600;
+
+  --text-title-sm:                    18px;
+  --text-title-sm--line-height:       1.4;
+  --text-title-sm--letter-spacing:    0;
+  --text-title-sm--font-weight:       500;
+
+  --text-body-md:                     16px;
+  --text-body-md--line-height:        1.5;
+  --text-body-md--letter-spacing:     0;
+  --text-body-md--font-weight:        400;
+
+  --text-body-sm:                     14px;
+  --text-body-sm--line-height:        1.5;
+  --text-body-sm--letter-spacing:     0;
+  --text-body-sm--font-weight:        400;
+
+  --text-label-caps:                  12px;
+  --text-label-caps--line-height:     1.2;
+  --text-label-caps--letter-spacing:  0.05em;
+  --text-label-caps--font-weight:     600;
+
+  --text-data-mono:                   14px;
+  --text-data-mono--line-height:      1;
+  --text-data-mono--letter-spacing:   -0.01em;
+  --text-data-mono--font-weight:      500;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* rounded-DEFAULT alias used in HTML drafts */
+@layer utilities {
+  .rounded-DEFAULT { border-radius: 0.125rem; }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Login page background effects */
+.geometric-bg {
+  background-image:
+    radial-gradient(circle at 15% 50%, rgba(0, 163, 255, 0.05) 0%, transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(152, 203, 255, 0.03) 0%, transparent 25%);
+  background-size: 100% 100%;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.grid-overlay {
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right,  rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+}
+
+/* Success toast animation used in TradeForm */
+@keyframes bounce-short {
+  0%, 100% { transform: translate(-50%, 0); }
+  50%       { transform: translate(-50%, -4px); }
+}
+.animate-bounce-short {
+  animation: bounce-short 2s ease-in-out infinite;
 }

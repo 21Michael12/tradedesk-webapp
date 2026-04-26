@@ -1,14 +1,20 @@
 export type TradeDirection = 'long' | 'short'
-export type AccountType   = 'demo' | 'funded' | 'live'
-export type DrawdownType  = 'trailing' | 'end_of_day'
+export type TradeType      = 'daytrade' | 'swing'
+export type AccountType    = 'demo' | 'funded' | 'live'
+export type DrawdownType   = 'trailing' | 'end_of_day'
+
+export type FuturesSymbol = 'NQ' | 'MNQ' | 'ES' | 'MES'
+
+export const SUPPORTED_SYMBOLS: readonly FuturesSymbol[] = ['NQ', 'MNQ', 'ES', 'MES'] as const
 
 export interface Trade {
   id: string
   user_id: string
   account_id: string
-  symbol: string
+  symbol: FuturesSymbol
   direction: TradeDirection
-  entry_price: number
+  trade_type: TradeType
+  entry_price: number      // entry points (futures price = points)
   exit_price: number
   quantity: number
   entry_time: string       // ISO timestamp

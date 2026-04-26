@@ -4,27 +4,45 @@ import { useState, useCallback, useRef, useTransition } from 'react'
 import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
-import type { z } from 'zod'
-import { tradeSchema } from '@/lib/validations/trade'
+import { tradeSchema, type TradeFormValues } from '@/lib/validations/trade'
 import { calculateTradePnl, getMultiplier, formatPnl } from '@/lib/futures'
 import { compressAndUploadImage, deleteUploadedImage } from '@/lib/imageCompression'
-import type { Trade } from '@/types'
+import { SUPPORTED_SYMBOLS } from '@/types'
+import type { Trade, FuturesSymbol, TradeType } from '@/types'
 
-type FormValues = z.input<typeof tradeSchema>
-type FormOutput = z.output<typeof tradeSchema>
+export interface TradeActionPayload {
+  trade_type:      TradeType
+  symbol:          FuturesSymbol
+  direction:       'long' | 'short'
+  entry_points:    number
+  exit_points:     number | null
+  quantity:        number
+  entry_time:      string  // YYYY-MM-DDTHH:mm
+  exit_time:       string | null
+  stop_loss:       number | null
+  take_profit:     number | null
+  fees:            number
+  notes:           string | null
+  tags:            string[]
+  screenshot_urls: string[]
+  account_id:      string
+}
 
 export interface TradeFormProps {
   userId: string
   accountId: string
   initialData?: Trade
-  action: (values: FormOutput) => Promise<{ error?: string } | void>
+  action: (values: TradeActionPayload) => Promise<{ error?: string } | void>
 }
 
-function toDatetimeLocal(iso?: string | null): string {
-  if (!iso) return ''
+function splitIso(iso?: string | null): { date: string; time: string } {
+  if (!iso) return { date: '', time: '' }
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  }
 }
 
 function inputCls(hasError = false) {
@@ -52,38 +70,47 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
   const tradeIdRef = useRef(initialData?.id ?? crypto.randomUUID())
   const isEdit = Boolean(initialData)
 
-  const defaultValues: FormValues = initialData
+  const entrySplit = splitIso(initialData?.entry_time)
+  const exitSplit  = splitIso(initialData?.exit_time)
+
+  const defaultValues: TradeFormValues = initialData
     ? {
-        symbol: initialData.symbol,
-        direction: initialData.direction,
-        entry_price: initialData.entry_price,
-        exit_price: initialData.exit_price ?? null,
-        quantity: initialData.quantity,
-        entry_time: toDatetimeLocal(initialData.entry_time),
-        exit_time: toDatetimeLocal(initialData.exit_time),
-        stop_loss: initialData.stop_loss ?? null,
-        take_profit: initialData.take_profit ?? null,
-        fees: initialData.fees,
-        notes: initialData.notes ?? '',
-        tags: initialData.tags ?? [],
-        screenshot_urls: initialData.screenshot_urls ?? [],
-        account_id: initialData.account_id,
+        trade_type:        initialData.trade_type ?? 'daytrade',
+        symbol:            initialData.symbol,
+        direction:         initialData.direction,
+        entry_points:      initialData.entry_price,
+        exit_points:       initialData.exit_price ?? null,
+        quantity:          initialData.quantity,
+        entry_date:        entrySplit.date,
+        entry_time_of_day: entrySplit.time,
+        exit_date:         exitSplit.date || null,
+        exit_time_of_day:  exitSplit.time || null,
+        stop_loss:         initialData.stop_loss ?? null,
+        take_profit:       initialData.take_profit ?? null,
+        fees:              initialData.fees,
+        notes:             initialData.notes ?? '',
+        tags:              initialData.tags ?? [],
+        screenshot_urls:   initialData.screenshot_urls ?? [],
+        account_id:        initialData.account_id,
       }
     : {
-        symbol: '',
-        direction: 'long' as const,
-        entry_price: '' as unknown as number,
-        exit_price: null,
-        quantity: 1,
-        entry_time: '',
-        exit_time: null,
-        stop_loss: null,
-        take_profit: null,
-        fees: 0,
-        notes: '',
-        tags: [],
-        screenshot_urls: [],
-        account_id: accountId,
+        trade_type:        'daytrade',
+        symbol:            'NQ',
+        direction:         'long',
+        entry_points:      '' as unknown as number,
+        exit_points:       null,
+        quantity:          1,
+        entry_date:        '',
+        entry_time_of_day: '',
+        exit_date:         null,
+        exit_time_of_day:  null,
+        stop_loss:         null,
+        take_profit:       null,
+        fees:              0,
+        notes:             '',
+        tags:              [],
+        screenshot_urls:   [],
+        account_id:        accountId,
       }
 
   const {
@@ -93,19 +120,20 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
     setValue,
     getValues,
     formState: { errors },
-  } = useForm<FormValues>({ resolver: zodResolver(tradeSchema), defaultValues })
+  } = useForm<TradeFormValues>({ resolver: zodResolver(tradeSchema), defaultValues })
 
-  // Live P&L
-  const watchedSymbol = useWatch({ control, name: 'symbol' }) ?? ''
-  const watchedEntry  = useWatch({ control, name: 'entry_price' })
-  const watchedExit   = useWatch({ control, name: 'exit_price' })
+  const tradeType   = useWatch({ control, name: 'trade_type' })   ?? 'daytrade'
+  const watchedSymbol = useWatch({ control, name: 'symbol' })     ?? 'NQ'
+  const watchedEntry  = useWatch({ control, name: 'entry_points' })
+  const watchedExit   = useWatch({ control, name: 'exit_points' })
   const watchedQty    = useWatch({ control, name: 'quantity' })
-  const watchedDir    = useWatch({ control, name: 'direction' }) ?? 'long'
-  const watchedFees   = useWatch({ control, name: 'fees' }) ?? 0
-  const watchedTags   = useWatch({ control, name: 'tags' }) ?? []
+  const watchedDir    = useWatch({ control, name: 'direction' })  ?? 'long'
+  const watchedFees   = useWatch({ control, name: 'fees' })       ?? 0
+  const watchedTags   = useWatch({ control, name: 'tags' })       ?? []
   const watchedUrls   = useWatch({ control, name: 'screenshot_urls' }) ?? []
 
-  const multiplier = getMultiplier(watchedSymbol)
+  const multiplier = getMultiplier(watchedSymbol as string)
+
   const pnlResult =
     watchedSymbol && watchedEntry && watchedExit && watchedQty
       ? calculateTradePnl(
@@ -113,7 +141,7 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
           Number(watchedExit),
           Number(watchedQty),
           watchedDir,
-          watchedSymbol,
+          watchedSymbol as string,
           Number(watchedFees)
         )
       : null
@@ -175,10 +203,35 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
     [uploadFiles]
   )
 
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = (data: TradeFormValues) => {
     setSubmitError(null)
+
+    const exitDate = data.trade_type === 'swing' ? data.exit_date : data.entry_date
+    const entryTime = `${data.entry_date}T${data.entry_time_of_day}`
+    const exitTime  = data.exit_time_of_day && exitDate
+      ? `${exitDate}T${data.exit_time_of_day}`
+      : null
+
+    const payload: TradeActionPayload = {
+      trade_type:      data.trade_type,
+      symbol:          data.symbol as FuturesSymbol,
+      direction:       data.direction,
+      entry_points:    data.entry_points,
+      exit_points:     data.exit_points ?? null,
+      quantity:        data.quantity,
+      entry_time:      entryTime,
+      exit_time:       exitTime,
+      stop_loss:       data.stop_loss ?? null,
+      take_profit:     data.take_profit ?? null,
+      fees:            data.fees,
+      notes:           data.notes ?? null,
+      tags:            data.tags ?? [],
+      screenshot_urls: data.screenshot_urls ?? [],
+      account_id:      data.account_id,
+    }
+
     startTransition(async () => {
-      const result = await action(data as FormOutput)
+      const result = await action(payload)
       if (result?.error) {
         setSubmitError(result.error)
       } else {
@@ -190,13 +243,9 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
 
   return (
     <>
-      {/* Success Toast */}
       {submitSuccess && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 bg-slate-900 border border-emerald-500/30 text-slate-100 px-6 py-3 rounded-full shadow-2xl animate-bounce-short">
-          <span
-            className="material-symbols-outlined text-emerald-500"
-            style={{ fontVariationSettings: "'FILL' 1" }}
-          >
+          <span className="material-symbols-outlined text-emerald-500" style={{ fontVariationSettings: "'FILL' 1" }}>
             check_circle
           </span>
           <span className="font-body-md">
@@ -206,7 +255,6 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
       )}
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        {/* ── Page Header ── */}
         <div className="px-margin py-lg border-b border-surface-container-highest bg-surface-dim">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -214,9 +262,7 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                 {isEdit ? 'עריכת עסקה' : 'רישום עסקה חדשה'}
               </h2>
               <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
-                {isEdit
-                  ? 'ערוך ועדכן את פרטי העסקה שבוצעה.'
-                  : 'הזן פרטים מדויקים לתיעוד איכותי של המסחר.'}
+                {isEdit ? 'ערוך ועדכן את פרטי העסקה שבוצעה.' : 'הזן פרטים מדויקים לתיעוד איכותי של המסחר.'}
               </p>
             </div>
             <div className="flex gap-3">
@@ -233,9 +279,7 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                 className="px-4 py-2 bg-primary-container text-on-primary-container rounded font-body-sm text-body-sm font-medium hover:brightness-110 transition-all disabled:opacity-60 flex items-center gap-2"
               >
                 {isPending && (
-                  <span className="material-symbols-outlined text-sm animate-spin">
-                    progress_activity
-                  </span>
+                  <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
                 )}
                 {isEdit ? 'שמור שינויים' : 'שמור עסקה'}
               </button>
@@ -243,7 +287,6 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
           </div>
         </div>
 
-        {/* ── Error Banner ── */}
         {submitError && (
           <div className="max-w-5xl mx-auto px-margin pt-md">
             <div className="flex items-center gap-3 bg-error-container text-on-error-container px-6 py-4 rounded-xl border border-error/20">
@@ -253,13 +296,43 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
           </div>
         )}
 
-        {/* ── Form Body ── */}
         <div className="max-w-5xl mx-auto px-margin py-xl">
           <input type="hidden" {...register('account_id')} />
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
-            {/* ── Main column (8 cols) ── */}
             <div className="lg:col-span-8 space-y-gutter">
+
+              {/* Trade type toggle */}
+              <div className="bg-surface-container-low rounded-lg border border-surface-container-highest p-md relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-1 h-full bg-secondary-container" />
+                <h3 className="font-title-sm text-title-sm text-on-surface mb-md">סוג עסקה</h3>
+                <Controller
+                  control={control}
+                  name="trade_type"
+                  render={({ field }) => (
+                    <div className="flex w-full bg-surface border border-outline-variant rounded-lg p-1 h-11">
+                      {([
+                        { value: 'daytrade', label: 'Daytrade — עסקת יום',  icon: 'today' },
+                        { value: 'swing',    label: 'Swing — עסקת סווינג', icon: 'date_range' },
+                      ] as const).map((opt) => (
+                        <label key={opt.value} className="flex-1 cursor-pointer">
+                          <input
+                            type="radio"
+                            className="peer sr-only"
+                            value={opt.value}
+                            checked={field.value === opt.value}
+                            onChange={() => field.onChange(opt.value)}
+                          />
+                          <div className="h-full flex items-center justify-center gap-1 rounded-md transition-all font-label-caps text-label-caps text-on-surface-variant peer-checked:bg-primary-container/15 peer-checked:text-primary-container">
+                            <span className="material-symbols-outlined text-sm">{opt.icon}</span>
+                            {opt.label}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                />
+              </div>
 
               {/* Basic Details */}
               <div className="bg-surface-container-low rounded-lg border border-surface-container-highest p-md relative overflow-hidden">
@@ -267,61 +340,52 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                 <h3 className="font-title-sm text-title-sm text-on-surface mb-md">פרטי עסקה בסיסיים</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
 
-                  {/* Symbol */}
-                  <div>
+                  {/* Symbol — segmented buttons */}
+                  <div className="sm:col-span-2">
                     <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
-                      נכס (סימול)
+                      נכס (Asset)
                     </label>
-                    <div className="relative">
-                      <input
-                        {...register('symbol')}
-                        className={`${inputCls(!!errors.symbol)} uppercase`}
-                        placeholder="NQ, ES, YM, GC..."
-                        autoComplete="off"
-                      />
-                      {watchedSymbol && multiplier > 1 && (
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 bg-surface-variant text-primary-container font-label-caps text-[10px] px-1.5 py-0.5 rounded border border-primary-container/30 pointer-events-none">
-                          x{multiplier}
-                        </span>
+                    <Controller
+                      control={control}
+                      name="symbol"
+                      render={({ field }) => (
+                        <div className="grid grid-cols-4 gap-2">
+                          {SUPPORTED_SYMBOLS.map((sym) => {
+                            const mult = getMultiplier(sym)
+                            const active = field.value === sym
+                            return (
+                              <label key={sym} className="cursor-pointer">
+                                <input
+                                  type="radio"
+                                  className="peer sr-only"
+                                  value={sym}
+                                  checked={active}
+                                  onChange={() => field.onChange(sym)}
+                                />
+                                <div
+                                  className={[
+                                    'h-16 rounded-lg border flex flex-col items-center justify-center transition-all',
+                                    active
+                                      ? 'bg-primary-container/15 border-primary-container text-primary-container'
+                                      : 'bg-surface border-outline-variant text-on-surface-variant hover:border-primary-container/40',
+                                  ].join(' ')}
+                                >
+                                  <span className="font-data-mono font-semibold text-base">{sym}</span>
+                                  <span className="font-label-caps text-[10px] opacity-70">×${mult}</span>
+                                </div>
+                              </label>
+                            )
+                          })}
+                        </div>
                       )}
-                    </div>
+                    />
                     {errors.symbol && (
                       <p className="text-error text-xs mt-1">{errors.symbol.message}</p>
                     )}
                   </div>
 
-                  {/* Entry time */}
-                  <div>
-                    <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
-                      תאריך ושעת כניסה
-                    </label>
-                    <input
-                      {...register('entry_time')}
-                      type="datetime-local"
-                      className={`${inputCls(!!errors.entry_time)} [color-scheme:dark]`}
-                    />
-                    {errors.entry_time && (
-                      <p className="text-error text-xs mt-1">{errors.entry_time.message}</p>
-                    )}
-                  </div>
-
-                  {/* Exit time */}
-                  <div>
-                    <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
-                      תאריך ושעת יציאה
-                    </label>
-                    <input
-                      {...register('exit_time')}
-                      type="datetime-local"
-                      className={`${inputCls(!!errors.exit_time)} [color-scheme:dark]`}
-                    />
-                    {errors.exit_time && (
-                      <p className="text-error text-xs mt-1">{errors.exit_time.message}</p>
-                    )}
-                  </div>
-
                   {/* Direction */}
-                  <div>
+                  <div className="sm:col-span-2">
                     <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
                       כיוון עסקה
                     </label>
@@ -361,55 +425,167 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                 </div>
               </div>
 
-              {/* Prices & Quantities */}
+              {/* Date & Time block — adapts to trade_type */}
               <div className="bg-surface-container-low rounded-lg border border-surface-container-highest p-md relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-1 h-full bg-tertiary-container" />
-                <h3 className="font-title-sm text-title-sm text-on-surface mb-md">מחירים וכמויות</h3>
+                <h3 className="font-title-sm text-title-sm text-on-surface mb-md flex items-center gap-2">
+                  <span className="material-symbols-outlined text-outline">schedule</span>
+                  תאריך ושעה
+                </h3>
+
+                {tradeType === 'daytrade' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
+                    <div>
+                      <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
+                        תאריך (DD/MM/YYYY)
+                      </label>
+                      <input
+                        {...register('entry_date')}
+                        type="date"
+                        lang="he-IL"
+                        className={`${inputCls(!!errors.entry_date)} [color-scheme:dark]`}
+                      />
+                      {errors.entry_date && (
+                        <p className="text-error text-xs mt-1">{errors.entry_date.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
+                        שעת כניסה (24h)
+                      </label>
+                      <input
+                        {...register('entry_time_of_day')}
+                        type="time"
+                        step="60"
+                        className={`${inputCls(!!errors.entry_time_of_day)} [color-scheme:dark]`}
+                      />
+                      {errors.entry_time_of_day && (
+                        <p className="text-error text-xs mt-1">{errors.entry_time_of_day.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
+                        שעת יציאה (24h)
+                      </label>
+                      <input
+                        {...register('exit_time_of_day')}
+                        type="time"
+                        step="60"
+                        className={`${inputCls(!!errors.exit_time_of_day)} [color-scheme:dark]`}
+                      />
+                      {errors.exit_time_of_day && (
+                        <p className="text-error text-xs mt-1">{errors.exit_time_of_day.message}</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                    <div className="flex flex-col gap-md p-md bg-surface rounded-lg border border-outline-variant/40">
+                      <p className="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm">login</span>
+                        כניסה
+                      </p>
+                      <div>
+                        <label className="block font-label-caps text-[10px] text-on-surface-variant opacity-70 mb-1">
+                          תאריך (DD/MM/YYYY)
+                        </label>
+                        <input
+                          {...register('entry_date')}
+                          type="date"
+                          lang="he-IL"
+                          className={`${inputCls(!!errors.entry_date)} [color-scheme:dark]`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-label-caps text-[10px] text-on-surface-variant opacity-70 mb-1">
+                          שעה (24h)
+                        </label>
+                        <input
+                          {...register('entry_time_of_day')}
+                          type="time"
+                          step="60"
+                          className={`${inputCls(!!errors.entry_time_of_day)} [color-scheme:dark]`}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-md p-md bg-surface rounded-lg border border-outline-variant/40">
+                      <p className="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm">logout</span>
+                        יציאה
+                      </p>
+                      <div>
+                        <label className="block font-label-caps text-[10px] text-on-surface-variant opacity-70 mb-1">
+                          תאריך (DD/MM/YYYY)
+                        </label>
+                        <input
+                          {...register('exit_date')}
+                          type="date"
+                          lang="he-IL"
+                          className={`${inputCls(!!errors.exit_date)} [color-scheme:dark]`}
+                        />
+                        {errors.exit_date && (
+                          <p className="text-error text-xs mt-1">{errors.exit_date.message}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block font-label-caps text-[10px] text-on-surface-variant opacity-70 mb-1">
+                          שעה (24h)
+                        </label>
+                        <input
+                          {...register('exit_time_of_day')}
+                          type="time"
+                          step="60"
+                          className={`${inputCls(!!errors.exit_time_of_day)} [color-scheme:dark]`}
+                        />
+                        {errors.exit_time_of_day && (
+                          <p className="text-error text-xs mt-1">{errors.exit_time_of_day.message}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Points & Quantities */}
+              <div className="bg-surface-container-low rounded-lg border border-surface-container-highest p-md relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-1 h-full bg-tertiary-container" />
+                <h3 className="font-title-sm text-title-sm text-on-surface mb-md">נקודות וחוזים</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
 
-                  {/* Entry price */}
                   <div>
                     <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
-                      מחיר כניסה
+                      Entry Points
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-data-mono">$</span>
-                      <input
-                        {...register('entry_price', { valueAsNumber: true })}
-                        type="number"
-                        step="0.01"
-                        dir="ltr"
-                        placeholder="0.00"
-                        className={`${inputCls(!!errors.entry_price)} pl-8`}
-                      />
-                    </div>
-                    {errors.entry_price && (
-                      <p className="text-error text-xs mt-1">{errors.entry_price.message}</p>
+                    <input
+                      {...register('entry_points', { valueAsNumber: true })}
+                      type="number"
+                      step="0.01"
+                      dir="ltr"
+                      placeholder="27000.00"
+                      className={inputCls(!!errors.entry_points)}
+                    />
+                    {errors.entry_points && (
+                      <p className="text-error text-xs mt-1">{errors.entry_points.message}</p>
                     )}
                   </div>
 
-                  {/* Exit price */}
                   <div>
                     <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
-                      מחיר יציאה
+                      Exit Points
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-data-mono">$</span>
-                      <input
-                        {...register('exit_price', { setValueAs: nullableNumber })}
-                        type="number"
-                        step="0.01"
-                        dir="ltr"
-                        placeholder="0.00"
-                        className={`${inputCls(!!errors.exit_price)} pl-8`}
-                      />
-                    </div>
-                    {errors.exit_price && (
-                      <p className="text-error text-xs mt-1">{errors.exit_price.message}</p>
+                    <input
+                      {...register('exit_points', { setValueAs: nullableNumber })}
+                      type="number"
+                      step="0.01"
+                      dir="ltr"
+                      placeholder="27050.00"
+                      className={inputCls(!!errors.exit_points)}
+                    />
+                    {errors.exit_points && (
+                      <p className="text-error text-xs mt-1">{errors.exit_points.message}</p>
                     )}
                   </div>
 
-                  {/* Quantity */}
                   <div>
                     <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
                       כמות (חוזים)
@@ -428,43 +604,34 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                     )}
                   </div>
 
-                  {/* Stop loss */}
                   <div>
                     <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
-                      סטופ לוס (אופציונלי)
+                      סטופ לוס (Points, אופציונלי)
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-data-mono">$</span>
-                      <input
-                        {...register('stop_loss', { setValueAs: nullableNumber })}
-                        type="number"
-                        step="0.01"
-                        dir="ltr"
-                        placeholder="0.00"
-                        className={`${inputCls()} pl-8`}
-                      />
-                    </div>
+                    <input
+                      {...register('stop_loss', { setValueAs: nullableNumber })}
+                      type="number"
+                      step="0.01"
+                      dir="ltr"
+                      placeholder="26980.00"
+                      className={inputCls()}
+                    />
                   </div>
 
-                  {/* Take profit */}
                   <div>
                     <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
-                      טייק פרופיט (אופציונלי)
+                      טייק פרופיט (Points, אופציונלי)
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-data-mono">$</span>
-                      <input
-                        {...register('take_profit', { setValueAs: nullableNumber })}
-                        type="number"
-                        step="0.01"
-                        dir="ltr"
-                        placeholder="0.00"
-                        className={`${inputCls()} pl-8`}
-                      />
-                    </div>
+                    <input
+                      {...register('take_profit', { setValueAs: nullableNumber })}
+                      type="number"
+                      step="0.01"
+                      dir="ltr"
+                      placeholder="27100.00"
+                      className={inputCls()}
+                    />
                   </div>
 
-                  {/* Fees */}
                   <div>
                     <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
                       עמלות ($)
@@ -503,10 +670,9 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
               </div>
             </div>
 
-            {/* ── Sidebar (4 cols) ── */}
+            {/* ── Sidebar ── */}
             <div className="lg:col-span-4 space-y-gutter">
 
-              {/* Live P&L Preview */}
               <div className="bg-surface-container-low rounded-lg border border-surface-container-highest p-md">
                 <h3 className="font-title-sm text-title-sm text-on-surface mb-md flex items-center gap-2">
                   <span className="material-symbols-outlined text-outline">calculate</span>
@@ -516,17 +682,13 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                   <div className="space-y-sm">
                     <div className="flex justify-between items-center">
                       <span className="font-body-sm text-body-sm text-on-surface-variant">רווח גולמי</span>
-                      <span
-                        className={`font-data-mono text-sm font-semibold ${pnlResult.grossPnl >= 0 ? 'text-success' : 'text-danger'}`}
-                      >
+                      <span className={`font-data-mono text-sm font-semibold ${pnlResult.grossPnl >= 0 ? 'text-success' : 'text-danger'}`}>
                         {formatPnl(pnlResult.grossPnl)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="font-body-sm text-body-sm text-on-surface-variant">רווח נקי</span>
-                      <span
-                        className={`font-data-mono text-sm font-bold ${pnlResult.netPnl >= 0 ? 'text-success' : 'text-danger'}`}
-                      >
+                      <span className={`font-data-mono text-sm font-bold ${pnlResult.netPnl >= 0 ? 'text-success' : 'text-danger'}`}>
                         {formatPnl(pnlResult.netPnl)}
                       </span>
                     </div>
@@ -539,17 +701,20 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-on-surface-variant">מכפיל</span>
-                      <span className="font-data-mono text-primary-container">×{pnlResult.multiplier}</span>
+                      <span className="font-data-mono text-primary-container">×${multiplier}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-on-surface-variant">חוזים</span>
+                      <span className="font-data-mono text-on-surface">{Number(watchedQty)}</span>
                     </div>
                   </div>
                 ) : (
                   <p className="font-body-sm text-body-sm text-on-surface-variant opacity-50 text-center py-4">
-                    הזן סימול ומחירים לחישוב
+                    הזן Entry/Exit Points לחישוב
                   </p>
                 )}
               </div>
 
-              {/* Tags */}
               <div className="bg-surface-container-low rounded-lg border border-surface-container-highest p-md">
                 <h3 className="font-title-sm text-title-sm text-on-surface mb-md flex items-center gap-2">
                   <span className="material-symbols-outlined text-outline">label</span>
@@ -562,11 +727,7 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                       className="inline-flex items-center gap-1 px-2 py-1 rounded bg-secondary-container text-on-secondary-container font-label-caps text-[10px]"
                     >
                       {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(tag)}
-                        className="hover:text-on-surface"
-                      >
+                      <button type="button" onClick={() => removeTag(tag)} className="hover:text-on-surface">
                         <span className="material-symbols-outlined text-[12px]">close</span>
                       </button>
                     </span>
@@ -595,14 +756,12 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                 </div>
               </div>
 
-              {/* Screenshots */}
               <div className="bg-surface-container-low rounded-lg border border-surface-container-highest p-md">
                 <h3 className="font-title-sm text-title-sm text-on-surface mb-md flex items-center gap-2">
                   <span className="material-symbols-outlined text-outline">image</span>
                   צילומי מסך
                 </h3>
 
-                {/* Drop zone */}
                 <label
                   className={[
                     'flex flex-col items-center gap-2 border-2 border-dashed rounded-lg p-6 text-center bg-surface-dim cursor-pointer mb-md transition-colors',
@@ -619,30 +778,19 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                     גרור תמונות לכאן או{' '}
                     <span className="text-primary-container hover:underline">לחץ להעלאה</span>
                   </p>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="sr-only"
-                    onChange={handleFileInput}
-                  />
+                  <input type="file" accept="image/*" multiple className="sr-only" onChange={handleFileInput} />
                 </label>
 
                 {uploadingCount > 0 && (
                   <p className="text-on-surface-variant font-body-sm text-body-sm text-center mb-md flex items-center justify-center gap-1">
-                    <span className="material-symbols-outlined text-sm animate-spin">
-                      progress_activity
-                    </span>
+                    <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
                     מעלה {uploadingCount} תמונות...
                   </p>
                 )}
 
                 <div className="space-y-3">
                   {watchedUrls.map((url) => (
-                    <div
-                      key={url}
-                      className="relative group rounded overflow-hidden border border-surface-container-highest"
-                    >
+                    <div key={url} className="relative group rounded overflow-hidden border border-surface-container-highest">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={url}

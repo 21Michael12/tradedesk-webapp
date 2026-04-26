@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { tradeSchema, type TradeFormValues } from '@/lib/validations/trade'
 import { calculateTradePnl, getMultiplier, formatPnl } from '@/lib/futures'
 import { compressAndUploadImage, deleteUploadedImage } from '@/lib/imageCompression'
+import { DateField, TimeField } from '@/components/forms/MaskedInputs'
 import { SUPPORTED_SYMBOLS } from '@/types'
 import type { Trade, FuturesSymbol, TradeType } from '@/types'
 
@@ -439,11 +440,16 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                       <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
                         תאריך (DD/MM/YYYY)
                       </label>
-                      <input
-                        {...register('entry_date')}
-                        type="date"
-                        lang="he-IL"
-                        className={`${inputCls(!!errors.entry_date)} [color-scheme:dark]`}
+                      <Controller
+                        control={control}
+                        name="entry_date"
+                        render={({ field }) => (
+                          <DateField
+                            value={field.value ?? ''}
+                            onChange={field.onChange}
+                            className={inputCls(!!errors.entry_date)}
+                          />
+                        )}
                       />
                       {errors.entry_date && (
                         <p className="text-error text-xs mt-1">{errors.entry_date.message}</p>
@@ -453,11 +459,16 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                       <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
                         שעת כניסה (24h)
                       </label>
-                      <input
-                        {...register('entry_time_of_day')}
-                        type="time"
-                        step="60"
-                        className={`${inputCls(!!errors.entry_time_of_day)} [color-scheme:dark]`}
+                      <Controller
+                        control={control}
+                        name="entry_time_of_day"
+                        render={({ field }) => (
+                          <TimeField
+                            value={field.value ?? ''}
+                            onChange={field.onChange}
+                            className={inputCls(!!errors.entry_time_of_day)}
+                          />
+                        )}
                       />
                       {errors.entry_time_of_day && (
                         <p className="text-error text-xs mt-1">{errors.entry_time_of_day.message}</p>
@@ -467,11 +478,16 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                       <label className="block font-label-caps text-label-caps text-on-surface-variant mb-sm">
                         שעת יציאה (24h)
                       </label>
-                      <input
-                        {...register('exit_time_of_day')}
-                        type="time"
-                        step="60"
-                        className={`${inputCls(!!errors.exit_time_of_day)} [color-scheme:dark]`}
+                      <Controller
+                        control={control}
+                        name="exit_time_of_day"
+                        render={({ field }) => (
+                          <TimeField
+                            value={field.value ?? ''}
+                            onChange={field.onChange}
+                            className={inputCls(!!errors.exit_time_of_day)}
+                          />
+                        )}
                       />
                       {errors.exit_time_of_day && (
                         <p className="text-error text-xs mt-1">{errors.exit_time_of_day.message}</p>
@@ -489,22 +505,32 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                         <label className="block font-label-caps text-[10px] text-on-surface-variant opacity-70 mb-1">
                           תאריך (DD/MM/YYYY)
                         </label>
-                        <input
-                          {...register('entry_date')}
-                          type="date"
-                          lang="he-IL"
-                          className={`${inputCls(!!errors.entry_date)} [color-scheme:dark]`}
+                        <Controller
+                          control={control}
+                          name="entry_date"
+                          render={({ field }) => (
+                            <DateField
+                              value={field.value ?? ''}
+                              onChange={field.onChange}
+                              className={inputCls(!!errors.entry_date)}
+                            />
+                          )}
                         />
                       </div>
                       <div>
                         <label className="block font-label-caps text-[10px] text-on-surface-variant opacity-70 mb-1">
                           שעה (24h)
                         </label>
-                        <input
-                          {...register('entry_time_of_day')}
-                          type="time"
-                          step="60"
-                          className={`${inputCls(!!errors.entry_time_of_day)} [color-scheme:dark]`}
+                        <Controller
+                          control={control}
+                          name="entry_time_of_day"
+                          render={({ field }) => (
+                            <TimeField
+                              value={field.value ?? ''}
+                              onChange={field.onChange}
+                              className={inputCls(!!errors.entry_time_of_day)}
+                            />
+                          )}
                         />
                       </div>
                     </div>
@@ -517,11 +543,16 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                         <label className="block font-label-caps text-[10px] text-on-surface-variant opacity-70 mb-1">
                           תאריך (DD/MM/YYYY)
                         </label>
-                        <input
-                          {...register('exit_date')}
-                          type="date"
-                          lang="he-IL"
-                          className={`${inputCls(!!errors.exit_date)} [color-scheme:dark]`}
+                        <Controller
+                          control={control}
+                          name="exit_date"
+                          render={({ field }) => (
+                            <DateField
+                              value={field.value ?? ''}
+                              onChange={field.onChange}
+                              className={inputCls(!!errors.exit_date)}
+                            />
+                          )}
                         />
                         {errors.exit_date && (
                           <p className="text-error text-xs mt-1">{errors.exit_date.message}</p>
@@ -531,11 +562,16 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
                         <label className="block font-label-caps text-[10px] text-on-surface-variant opacity-70 mb-1">
                           שעה (24h)
                         </label>
-                        <input
-                          {...register('exit_time_of_day')}
-                          type="time"
-                          step="60"
-                          className={`${inputCls(!!errors.exit_time_of_day)} [color-scheme:dark]`}
+                        <Controller
+                          control={control}
+                          name="exit_time_of_day"
+                          render={({ field }) => (
+                            <TimeField
+                              value={field.value ?? ''}
+                              onChange={field.onChange}
+                              className={inputCls(!!errors.exit_time_of_day)}
+                            />
+                          )}
                         />
                         {errors.exit_time_of_day && (
                           <p className="text-error text-xs mt-1">{errors.exit_time_of_day.message}</p>

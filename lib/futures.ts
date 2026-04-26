@@ -19,8 +19,14 @@ export const FUTURES_INSTRUMENTS: Record<string, InstrumentInfo> = {
   M2K: { name: 'Micro E-mini Russell 2000',    exchange: 'CME'   },
 }
 
+// Matches a real futures contract-month suffix:
+//   Letter+YY  (e.g. "Z23"),  digit+!  ("1!"),  or just "!".
+const CONTRACT_SUFFIX_RE = /([FGHJKMNQUVXZ]\d{2}|\d{1,2}!?|!)$/
+
 export function getInstrumentInfo(symbol: string): InstrumentInfo {
-  const base = symbol.replace(/[0-9!FGHJKMNQUVXZ]+$/, '').toUpperCase()
+  const upper = symbol.toUpperCase()
+  if (FUTURES_INSTRUMENTS[upper]) return FUTURES_INSTRUMENTS[upper]
+  const base = upper.replace(CONTRACT_SUFFIX_RE, '')
   return FUTURES_INSTRUMENTS[base] ?? { name: symbol, exchange: '—' }
 }
 
@@ -48,9 +54,9 @@ export const FUTURES_MULTIPLIERS: Record<string, number> = {
  * suffix (e.g. "NQ1!" → "NQ", "ESZ23" → "ES").
  */
 export function getMultiplier(symbol: string): number {
-  const base = symbol
-    .replace(/[0-9!FGHJKMNQUVXZ]+$/, '')
-    .toUpperCase()
+  const upper = symbol.toUpperCase()
+  if (FUTURES_MULTIPLIERS[upper] !== undefined) return FUTURES_MULTIPLIERS[upper]
+  const base = upper.replace(CONTRACT_SUFFIX_RE, '')
   return FUTURES_MULTIPLIERS[base] ?? 1
 }
 

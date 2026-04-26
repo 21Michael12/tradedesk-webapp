@@ -50,7 +50,7 @@ export default async function AccountsPage() {
       account_type: values.account_type,
       portfolio_size: values.portfolio_size,
       current_balance: values.portfolio_size,
-      max_loss_pct: values.max_loss_pct,
+      starting_mll: values.starting_mll,
       prop_firm_name: values.prop_firm_name,
       is_active: !hasActive,
     })
@@ -101,8 +101,8 @@ export default async function AccountsPage() {
       ) : (
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {accounts.map((account) => {
-            const balance = account.current_balance ?? account.portfolio_size
-            const lossDollars = (account.portfolio_size * account.max_loss_pct) / 100
+            const balance       = account.current_balance ?? account.portfolio_size
+            const trailDistance = account.portfolio_size - account.starting_mll
 
             return (
               <article
@@ -150,12 +150,12 @@ export default async function AccountsPage() {
                     <dd className="font-data-mono text-base text-on-surface-variant">{formatDollar(account.portfolio_size)}</dd>
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    <dt className="font-label-caps text-[10px] text-on-surface-variant opacity-70">הפסד מקס׳</dt>
-                    <dd className="font-data-mono text-base text-danger">{account.max_loss_pct}%</dd>
+                    <dt className="font-label-caps text-[10px] text-on-surface-variant opacity-70">Starting MLL</dt>
+                    <dd className="font-data-mono text-base text-danger">{formatDollar(account.starting_mll)}</dd>
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    <dt className="font-label-caps text-[10px] text-on-surface-variant opacity-70">סף הפסד ($)</dt>
-                    <dd className="font-data-mono text-base text-on-surface-variant">{formatDollar(lossDollars)}</dd>
+                    <dt className="font-label-caps text-[10px] text-on-surface-variant opacity-70">Trail Distance</dt>
+                    <dd className="font-data-mono text-base text-on-surface-variant">{formatDollar(trailDistance)}</dd>
                   </div>
                 </dl>
 

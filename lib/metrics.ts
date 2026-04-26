@@ -172,6 +172,67 @@ export function filterByDateRange(
   })
 }
 
+// ─── Trailing Maximum Loss Limit (MLL) ───────────────────────────────────────
+
+export interface MllStatus {
+  startingMll:    number  // initial floor at account creation
+  currentMll:     number  // floor after trailing
+  currentBalance: number  // portfolio_size + Σ net_pnl
+  hwm:            number  // highest equity ever reached
+  trailDistance:  number  // portfolio_size − startingMll (constant)
+  buffer:         number  // currentBalance − currentMll  (≥ 0 = alive)
+  usedPct:        number  // 0 = at HWM, 100 = blown
+  isBlown:        boolean
+}
+
+/**
+ * Computes the Trailing Maximum Loss Limit status for a Topstep-style
+ * funded account.
+ *
+ * Rules:
+ *   - Trail distance = portfolio_size − starting_mll  (constant for life of account)
+ *   - HWM            = max(portfolio_size, max running equity over closed trades)
+ *   - current_mll    = starting_mll + max(0, HWM − portfolio_size)
+ *                      i.e. the MLL trails up with the high-water mark, never down.
+ *   - buffer         = current_balance − current_mll
+ */
+export function calculateMllStatus(
+  trades: Trade[],
+  portfolioSize: number,
+  startingMll: number,
+): MllStatus {
+  const closed = trades
+    .filter((t) => t.net_pnl !== null)
+    .sort((a, b) => new Date(a.entry_time).getTime() - new Date(b.entry_time).getTime())
+
+  let cumulative = 0
+  let hwm        = portfolioSize
+  for (const t of closed) {
+    cumulative += t.net_pnl ?? 0
+    const equity = portfolioSize + cumulative
+    if (equity > hwm) hwm = equity
+  }
+
+  const currentBalance = portfolioSize + cumulative
+  const trailDistance  = portfolioSize - startingMll
+  const currentMll     = startingMll + Math.max(0, hwm - portfolioSize)
+  const buffer         = currentBalance - currentMll
+  const usedPct        = trailDistance > 0
+    ? Math.max(0, Math.min(100, ((trailDistance - buffer) / trailDistance) * 100))
+    : 0
+
+  return {
+    startingMll,
+    currentMll,
+    currentBalance,
+    hwm,
+    trailDistance,
+    buffer,
+    usedPct,
+    isBlown: buffer <= 0,
+  }
+}
+
 /** Returns the Hebrew month name for a 0-indexed month number. */
 export const HEBREW_MONTHS = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',

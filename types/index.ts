@@ -33,7 +33,7 @@ export interface Account {
   account_type: AccountType
   portfolio_size: number
   current_balance: number | null
-  max_loss_pct: number
+  starting_mll: number
   prop_firm_name: string | null
   drawdown_type: DrawdownType | null
   daily_loss_limit: number | null

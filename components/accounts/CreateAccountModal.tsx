@@ -8,7 +8,7 @@ export interface CreateAccountValues {
   name: string
   account_type: AccountType
   portfolio_size: number
-  max_loss_pct: number
+  starting_mll: number
   prop_firm_name: string | null
 }
 
@@ -39,14 +39,14 @@ export default function CreateAccountModal({ action }: CreateAccountModalProps) 
   const [name, setName]                   = useState('')
   const [accountType, setAccountType]     = useState<AccountType>('demo')
   const [portfolioSize, setPortfolioSize] = useState('')
-  const [maxLossPct, setMaxLossPct]       = useState('5')
+  const [startingMll, setStartingMll]     = useState('')
   const [propFirmName, setPropFirmName]   = useState('')
 
   function reset() {
     setName('')
     setAccountType('demo')
     setPortfolioSize('')
-    setMaxLossPct('5')
+    setStartingMll('')
     setPropFirmName('')
     setError(null)
   }
@@ -61,11 +61,12 @@ export default function CreateAccountModal({ action }: CreateAccountModalProps) 
     setError(null)
 
     const size = Number(portfolioSize)
-    const loss = Number(maxLossPct)
+    const mll  = Number(startingMll)
 
-    if (!name.trim())               return setError('שם החשבון חובה')
-    if (!Number.isFinite(size) || size <= 0) return setError('גודל תיק חייב להיות מספר חיובי')
-    if (!Number.isFinite(loss) || loss <= 0 || loss > 100) return setError('אחוז הפסד מקסימלי חייב להיות בין 0 ל-100')
+    if (!name.trim())                                     return setError('שם החשבון חובה')
+    if (!Number.isFinite(size) || size <= 0)              return setError('גודל תיק חייב להיות מספר חיובי')
+    if (!Number.isFinite(mll) || mll <= 0)                return setError('Starting MLL חייב להיות מספר חיובי')
+    if (mll >= size)                                       return setError('Starting MLL חייב להיות נמוך מגודל התיק')
     if (accountType === 'funded' && !propFirmName.trim()) return setError('חשבון מממן דורש שם חברה')
 
     startTransition(async () => {
@@ -73,7 +74,7 @@ export default function CreateAccountModal({ action }: CreateAccountModalProps) 
         name: name.trim(),
         account_type: accountType,
         portfolio_size: size,
-        max_loss_pct: loss,
+        starting_mll: mll,
         prop_firm_name: accountType === 'funded' ? propFirmName.trim() : null,
       })
       if (result && 'error' in result && result.error) {
@@ -164,18 +165,22 @@ export default function CreateAccountModal({ action }: CreateAccountModalProps) 
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-label-caps text-label-caps text-on-surface-variant">הפסד מקסימלי (%)</label>
+                  <label className="font-label-caps text-label-caps text-on-surface-variant">Starting MLL ($)</label>
                   <input
                     className={inputCls()}
                     type="number"
                     inputMode="decimal"
                     step="any"
-                    value={maxLossPct}
-                    onChange={(e) => setMaxLossPct(e.target.value)}
-                    placeholder="5"
+                    value={startingMll}
+                    onChange={(e) => setStartingMll(e.target.value)}
+                    placeholder="48000"
                   />
                 </div>
               </div>
+
+              <p className="font-body-sm text-body-sm text-on-surface-variant opacity-70 -mt-2">
+                ה־MLL הוא רצפת ההפסד שממנה החשבון נשרף. בחשבון Topstep 50K טיפוסי ה־MLL ההתחלתי הוא $48,000 (מרחק טריילינג של $2,000).
+              </p>
 
               {error && (
                 <div className="bg-error/10 border border-error/30 text-error rounded-lg p-3 font-body-sm text-body-sm">

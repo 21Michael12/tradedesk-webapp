@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import {
   calculateMetrics,
+  calculateMllStatus,
   buildEquityCurve,
   buildMonthCalendar,
   groupTradesByDate,
@@ -82,6 +83,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const balance       = account?.current_balance
     ?? (portfolioSize > 0 ? portfolioSize + allMetrics.totalNetPnl : 0)
 
+  // ── Trailing MLL status ─────────────────────────────────────────────────
+  const mllStatus =
+    account && portfolioSize > 0 && account.starting_mll > 0
+      ? calculateMllStatus(trades, portfolioSize, account.starting_mll)
+      : null
+
   const balanceTrendPct: number | null =
     lastMonthMetrics.totalNetPnl !== 0 && portfolioSize > 0
       ? ((allMetrics.totalNetPnl - lastMonthMetrics.totalNetPnl) / portfolioSize) * 100
@@ -151,6 +158,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         totalWeekdaysThisMonth={totalWeekdaysThisMonth}
         streakDays={streakDays}
         account={account}
+        mllStatus={mllStatus}
       />
 
       {/* Chart + Calendar row */}

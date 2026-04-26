@@ -33,8 +33,9 @@ export default function AccountSwitcher({ accounts }: AccountSwitcherProps) {
   function select(id: string) {
     const params = new URLSearchParams(searchParams.toString())
     params.set('accountId', id)
-    // Navigate to the current page preserving other params, update accountId
-    const dest = pathname.includes('/dashboard') ? `${pathname}?${params}` : `/dashboard?accountId=${id}`
+    const isAccountAware =
+      pathname.startsWith('/dashboard') || pathname.startsWith('/journal')
+    const dest = isAccountAware ? `${pathname}?${params}` : `/dashboard?accountId=${id}`
     router.push(dest)
     setOpen(false)
   }

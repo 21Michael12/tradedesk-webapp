@@ -13,7 +13,7 @@ interface SideNavProps {
 
 const navItems = [
   { href: '/dashboard',  icon: 'dashboard',              label: 'לוח בקרה',  fill: true  },
-  { href: '/dashboard',  icon: 'auto_stories',           label: 'יומן מסחר', fill: false },
+  { href: '/journal',    icon: 'auto_stories',           label: 'יומן מסחר', fill: false },
   { href: '/accounts',   icon: 'account_balance_wallet', label: 'חשבונות',   fill: false },
   { href: '/calendar',   icon: 'calendar_month',         label: 'לוח שנה',   fill: false },
   { href: '/settings',   icon: 'settings',               label: 'הגדרות',    fill: false },

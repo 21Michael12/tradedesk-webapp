@@ -13,7 +13,7 @@ interface TopNavProps {
 
 const navItems = [
   { href: '/dashboard',  icon: 'dashboard',              label: 'לוח בקרה'  },
-  { href: '/dashboard',  icon: 'auto_stories',           label: 'יומן מסחר' },
+  { href: '/journal',    icon: 'auto_stories',           label: 'יומן מסחר' },
   { href: '/accounts',   icon: 'account_balance_wallet', label: 'חשבונות'   },
   { href: '/calendar',   icon: 'calendar_month',         label: 'לוח שנה'   },
   { href: '/settings',   icon: 'settings',               label: 'הגדרות'    },

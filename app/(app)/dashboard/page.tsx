@@ -100,7 +100,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const streakDays   = getCurrentStreak(pnlByDate)
 
   // ── Recent trades ─────────────────────────────────────────────────────────
-  const recentTrades = trades.slice(0, 20)
+  const recentTrades = trades.slice(0, 5)
 
   // ── Active filter label ───────────────────────────────────────────────────
   const currentMonthLabel = `${HEBREW_MONTHS[now.getMonth()]} ${now.getFullYear()}`

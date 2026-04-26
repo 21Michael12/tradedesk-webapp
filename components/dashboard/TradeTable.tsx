@@ -62,7 +62,7 @@ export default function TradeTable({ trades }: TradeTableProps) {
           טריידים אחרונים
         </h3>
         <Link
-          href="/dashboard"
+          href="/journal"
           className="text-primary-container font-label-caps text-label-caps hover:text-primary transition-colors text-xs"
         >
           הצג הכל

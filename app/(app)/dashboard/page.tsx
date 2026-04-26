@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import {
   calculateMetrics,
   calculateMllStatus,
-  buildEquityCurve,
   buildMonthCalendar,
   groupTradesByDate,
   countTradingDays,
@@ -12,10 +11,10 @@ import {
 } from '@/lib/metrics'
 import type { Trade, Account } from '@/types'
 import { formatDollar } from '@/lib/futures'
-import StatsGrid        from '@/components/dashboard/StatsGrid'
-import PerformanceChart from '@/components/dashboard/PerformanceChart'
-import CalendarGrid     from '@/components/dashboard/CalendarGrid'
-import TradeTable       from '@/components/dashboard/TradeTable'
+import StatsGrid    from '@/components/dashboard/StatsGrid'
+import EquityCurve  from '@/components/charts/EquityCurve'
+import CalendarGrid from '@/components/dashboard/CalendarGrid'
+import TradeTable   from '@/components/dashboard/TradeTable'
 
 export const metadata = { title: 'TradeDesk | לוח בקרה' }
 
@@ -98,9 +97,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // ── Trading-days counters ────────────────────────────────────────────────
   const tradingDaysThisMonth   = countTradingDays(thisMonthTrades)
   const totalWeekdaysThisMonth = countWeekdaysInMonth(now.getFullYear(), now.getMonth())
-
-  // ── Equity curve ─────────────────────────────────────────────────────────
-  const equityCurve = buildEquityCurve(trades)
 
   // ── Calendar ─────────────────────────────────────────────────────────────
   const pnlByDate    = groupTradesByDate(thisMonthTrades)
@@ -186,7 +182,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       {/* Chart + Calendar row */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <PerformanceChart allPoints={equityCurve} />
+        <div className="lg:col-span-2">
+          <EquityCurve trades={trades} account={account} title="עקומת הון יומית" />
+        </div>
         <CalendarGrid
           days={calendarDays}
           year={now.getFullYear()}

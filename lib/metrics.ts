@@ -172,6 +172,84 @@ export function filterByDateRange(
   })
 }
 
+// ─── Daily Equity / MLL Series ───────────────────────────────────────────────
+
+export interface EquityMllPoint {
+  date:    string  // YYYY-MM-DD
+  balance: number  // portfolio_size + Σ net_pnl up to and including this day
+  mll:     number  // trailing MLL at end of day
+}
+
+/**
+ * Builds a per-day series of (balance, current MLL) from closed trades.
+ *
+ * - balance = portfolioSize + cumulative net_pnl through the day
+ * - HWM is the running maximum equity over the curve
+ * - currentMll = startingMll + max(0, HWM − portfolioSize)  (trails up only)
+ */
+export function buildEquityMllSeries(
+  trades: Trade[],
+  portfolioSize: number,
+  startingMll: number,
+): EquityMllPoint[] {
+  const closed = trades
+    .filter((t) => t.net_pnl !== null)
+    .sort((a, b) => new Date(a.entry_time).getTime() - new Date(b.entry_time).getTime())
+
+  if (closed.length === 0) return []
+
+  // Aggregate net_pnl by date
+  const byDate = new Map<string, number>()
+  for (const t of closed) {
+    const d = t.entry_time.slice(0, 10)
+    byDate.set(d, (byDate.get(d) ?? 0) + (t.net_pnl ?? 0))
+  }
+
+  const dates = [...byDate.keys()].sort()
+
+  let cumulative = 0
+  let hwm        = portfolioSize
+  const points: EquityMllPoint[] = []
+
+  for (const date of dates) {
+    cumulative += byDate.get(date) ?? 0
+    const balance = portfolioSize + cumulative
+    if (balance > hwm) hwm = balance
+    const mll = startingMll + Math.max(0, hwm - portfolioSize)
+    points.push({ date, balance, mll })
+  }
+
+  return points
+}
+
+export type AggregationPeriod = 'daily' | 'weekly' | 'monthly'
+
+/**
+ * Down-samples a daily series to weekly or monthly by keeping only the
+ * last point of each bucket (end-of-period balance / MLL).
+ */
+export function aggregateEquityMllSeries(
+  points: EquityMllPoint[],
+  period: AggregationPeriod,
+): EquityMllPoint[] {
+  if (period === 'daily' || points.length === 0) return points
+
+  const bucketKey = (date: string): string => {
+    const d = new Date(date)
+    if (period === 'monthly') {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    }
+    // weekly — ISO-ish week starting Sunday
+    const sunday = new Date(d)
+    sunday.setDate(d.getDate() - d.getDay())
+    return sunday.toISOString().slice(0, 10)
+  }
+
+  const last = new Map<string, EquityMllPoint>()
+  for (const p of points) last.set(bucketKey(p.date), p)
+  return [...last.values()]
+}
+
 // ─── Trailing Maximum Loss Limit (MLL) ───────────────────────────────────────
 
 export interface MllStatus {

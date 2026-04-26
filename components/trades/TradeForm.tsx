@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useTransition } from 'react'
+import { useState, useCallback, useEffect, useRef, useTransition } from 'react'
 import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
@@ -33,6 +33,10 @@ export interface TradeFormProps {
   userId: string
   accountId: string
   initialData?: Trade
+  defaults?: {
+    symbol?:     FuturesSymbol
+    commission?: number  // dollars per contract
+  }
   action: (values: TradeActionPayload) => Promise<{ error?: string } | void>
 }
 
@@ -60,7 +64,7 @@ function nullableNumber(v: unknown) {
   return isNaN(n) ? null : n
 }
 
-export default function TradeForm({ userId, accountId, initialData, action }: TradeFormProps) {
+export default function TradeForm({ userId, accountId, initialData, defaults, action }: TradeFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -96,7 +100,7 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
       }
     : {
         trade_type:        'daytrade',
-        symbol:            'NQ',
+        symbol:            defaults?.symbol ?? 'NQ',
         direction:         'long',
         entry_points:      '' as unknown as number,
         exit_points:       null,
@@ -107,7 +111,7 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
         exit_time_of_day:  null,
         stop_loss:         null,
         take_profit:       null,
-        fees:              0,
+        fees:              defaults?.commission ? defaults.commission : 0,
         notes:             '',
         tags:              [],
         screenshot_urls:   [],
@@ -134,6 +138,15 @@ export default function TradeForm({ userId, accountId, initialData, action }: Tr
   const watchedUrls   = useWatch({ control, name: 'screenshot_urls' }) ?? []
 
   const multiplier = getMultiplier(watchedSymbol as string)
+
+  // Auto-fill fees from default commission × quantity on new trades
+  useEffect(() => {
+    if (initialData) return
+    const commission = defaults?.commission ?? 0
+    if (commission <= 0) return
+    const fees = Math.round(commission * Number(watchedQty || 0) * 100) / 100
+    setValue('fees', fees)
+  }, [watchedQty, defaults?.commission, initialData, setValue])
 
   const pnlResult =
     watchedSymbol && watchedEntry && watchedExit && watchedQty

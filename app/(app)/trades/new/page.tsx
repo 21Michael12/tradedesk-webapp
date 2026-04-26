@@ -5,7 +5,7 @@ import TradeForm from '@/components/trades/TradeForm'
 import type { TradeFormProps } from '@/components/trades/TradeForm'
 import { calculateTradePnl } from '@/lib/futures'
 import { calculateMllStatus } from '@/lib/metrics'
-import type { Trade } from '@/types'
+import type { Trade, FuturesSymbol } from '@/types'
 
 export const metadata = { title: 'TradeDesk | עסקה חדשה' }
 
@@ -39,6 +39,18 @@ export default async function NewTradePage() {
   const mllStatus = calculateMllStatus(accountTrades, account.portfolio_size, account.starting_mll)
 
   if (mllStatus.isBlown) redirect('/dashboard')
+
+  // Pull user defaults so the form can pre-fill symbol & fees
+  const { data: settings } = await supabase
+    .from('user_settings')
+    .select('default_symbol, default_commission')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const defaults = {
+    symbol:     (settings?.default_symbol as FuturesSymbol | undefined) ?? undefined,
+    commission: settings?.default_commission != null ? Number(settings.default_commission) : undefined,
+  }
 
   const action: TradeFormProps['action'] = async (values) => {
     'use server'
@@ -99,6 +111,7 @@ export default async function NewTradePage() {
     <TradeForm
       userId={user.id}
       accountId={account.id}
+      defaults={defaults}
       action={action}
     />
   )

@@ -18,11 +18,12 @@ import {
   type AggregationPeriod,
   type EquityMllPoint,
 } from '@/lib/metrics'
-import type { Trade, Account } from '@/types'
+import type { Trade, Account, Withdrawal } from '@/types'
 import { formatDollar } from '@/lib/futures'
 
 interface EquityCurveProps {
   trades: Trade[]
+  withdrawals: Withdrawal[]
   account: Account | null
   showAggregationToggle?: boolean
   defaultPeriod?: AggregationPeriod
@@ -78,6 +79,7 @@ function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
 
 export default function EquityCurve({
   trades,
+  withdrawals,
   account,
   showAggregationToggle = false,
   defaultPeriod = 'daily',
@@ -87,8 +89,8 @@ export default function EquityCurve({
 
   const allPoints: EquityMllPoint[] = useMemo(() => {
     if (!account) return []
-    return buildEquityMllSeries(trades, account.portfolio_size, account.starting_mll)
-  }, [trades, account])
+    return buildEquityMllSeries(trades, withdrawals, account.portfolio_size, account.starting_mll)
+  }, [trades, withdrawals, account])
 
   const points = useMemo(
     () => aggregateEquityMllSeries(allPoints, period),

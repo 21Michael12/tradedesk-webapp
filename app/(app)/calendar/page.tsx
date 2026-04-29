@@ -6,7 +6,7 @@ import {
   filterByDateRange,
   HEBREW_MONTHS,
 } from '@/lib/metrics'
-import type { Account, Trade } from '@/types'
+import type { Account, Trade, Withdrawal } from '@/types'
 import EquityCurve from '@/components/charts/EquityCurve'
 import DayCell from '@/components/calendar/DayPopover'
 
@@ -27,7 +27,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: rawAccounts }, { data: rawTrades }] = await Promise.all([
+  const [{ data: rawAccounts }, { data: rawTrades }, { data: rawWithdrawals }] = await Promise.all([
     supabase
       .from('accounts')
       .select('*')
@@ -38,10 +38,15 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       .select('*')
       .eq('user_id', user.id)
       .order('entry_time', { ascending: false }),
+    supabase
+      .from('withdrawals')
+      .select('*')
+      .eq('user_id', user.id),
   ])
 
-  const allAccounts: Account[] = (rawAccounts as Account[] | null) ?? []
-  const allTrades:   Trade[]   = (rawTrades   as Trade[]   | null) ?? []
+  const allAccounts:    Account[]    = (rawAccounts    as Account[]    | null) ?? []
+  const allTrades:      Trade[]      = (rawTrades      as Trade[]      | null) ?? []
+  const allWithdrawals: Withdrawal[] = (rawWithdrawals as Withdrawal[] | null) ?? []
 
   const account: Account | null =
     (accountId ? allAccounts.find((a) => a.id === accountId) : null) ??
@@ -51,6 +56,9 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
 
   const trades = account
     ? allTrades.filter((t) => t.account_id === account.id)
+    : []
+  const withdrawals = account
+    ? allWithdrawals.filter((w) => w.account_id === account.id)
     : []
 
   const now = new Date()
@@ -124,6 +132,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
 
       <EquityCurve
         trades={trades}
+        withdrawals={withdrawals}
         account={account}
         showAggregationToggle
         defaultPeriod="daily"

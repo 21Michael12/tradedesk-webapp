@@ -11,6 +11,7 @@ interface StatsGridProps {
   streakDays: number
   account: Account | null
   mllStatus: MllStatus | null
+  totalWithdrawals: number
 }
 
 /** Returns bar color + text color based on what % of the max-loss limit is consumed. */
@@ -29,6 +30,7 @@ export default function StatsGrid({
   streakDays,
   account,
   mllStatus,
+  totalWithdrawals,
 }: StatsGridProps) {
   const pnlPositive     = metrics.totalNetPnl >= 0
   const profitFactorFmt =
@@ -42,8 +44,8 @@ export default function StatsGrid({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ── 4-card standard grid ────────────────────────────────────────── */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── Stats grid ──────────────────────────────────────────────────── */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
 
         {/* Card 1: Balance */}
         <div className="bg-surface-container p-5 rounded-lg border border-outline-variant flex flex-col gap-2 relative overflow-hidden group">
@@ -146,6 +148,25 @@ export default function StatsGrid({
             ) : (
               <span className="font-body-sm text-on-surface-variant text-xs opacity-70">אין עסקאות עדיין</span>
             )}
+          </div>
+        </div>
+
+        {/* Card 5: Total Payouts */}
+        <div className="bg-surface-container p-5 rounded-lg border border-outline-variant flex flex-col gap-2 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl -mr-16 -mt-16 transition-opacity opacity-50 group-hover:opacity-100" />
+          <div className="flex justify-between items-start z-10">
+            <span className="font-body-sm text-body-sm text-on-surface-variant">סך משיכות</span>
+            <span className="material-symbols-outlined text-emerald-400 text-lg opacity-90">
+              payments
+            </span>
+          </div>
+          <div className="font-data-mono text-3xl font-semibold text-emerald-400 tracking-tight mt-1 z-10">
+            {formatDollar(totalWithdrawals)}
+          </div>
+          <div className="flex items-center gap-1 mt-auto z-10">
+            <span className="font-body-sm text-on-surface-variant text-xs opacity-70">
+              {totalWithdrawals > 0 ? 'הבאפר ב־MLL מצטמצם בהתאם' : 'אין משיכות עדיין'}
+            </span>
           </div>
         </div>
       </section>

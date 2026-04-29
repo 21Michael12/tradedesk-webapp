@@ -3,10 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import AccountFormModal from '@/components/accounts/AccountFormModal'
 import DeleteAccountButton from '@/components/accounts/DeleteAccountButton'
+import PayoutModal from '@/components/accounts/PayoutModal'
+import WithdrawalHistory from '@/components/accounts/WithdrawalHistory'
 import type { AccountFormValues } from '@/components/accounts/AccountFormModal'
 import { updateAccount, deleteAccount } from '@/lib/actions/accounts'
 import { calculateMllStatus } from '@/lib/metrics'
-import type { Account, AccountType, Trade } from '@/types'
+import type { Account, AccountType, Trade, Withdrawal } from '@/types'
 import { formatDollar } from '@/lib/futures'
 
 export const metadata = { title: 'TradeDesk | חשבונות' }
@@ -30,7 +32,7 @@ export default async function AccountsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: rawAccounts }, { data: rawTrades }] = await Promise.all([
+  const [{ data: rawAccounts }, { data: rawTrades }, { data: rawWithdrawals }] = await Promise.all([
     supabase
       .from('accounts')
       .select('*')
@@ -40,10 +42,16 @@ export default async function AccountsPage() {
       .from('trades')
       .select('*')
       .eq('user_id', user.id),
+    supabase
+      .from('withdrawals')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false }),
   ])
 
-  const accounts: Account[] = (rawAccounts as Account[] | null) ?? []
-  const trades:   Trade[]   = (rawTrades   as Trade[]   | null) ?? []
+  const accounts:    Account[]    = (rawAccounts    as Account[]    | null) ?? []
+  const trades:      Trade[]      = (rawTrades      as Trade[]      | null) ?? []
+  const withdrawals: Withdrawal[] = (rawWithdrawals as Withdrawal[] | null) ?? []
 
   const createAccount = async (values: AccountFormValues) => {
     'use server'
@@ -121,10 +129,12 @@ export default async function AccountsPage() {
       ) : (
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {accounts.map((account) => {
-            const accountTrades = trades.filter((t) => t.account_id === account.id)
-            const mllStatus     = calculateMllStatus(accountTrades, account.portfolio_size, account.starting_mll)
+            const accountTrades      = trades.filter((t) => t.account_id === account.id)
+            const accountWithdrawals = withdrawals.filter((w) => w.account_id === account.id)
+            const mllStatus     = calculateMllStatus(accountTrades, accountWithdrawals, account.portfolio_size, account.starting_mll)
             const balance       = mllStatus.currentBalance
             const trailDistance = mllStatus.trailDistance
+            const canPayout     = account.account_type === 'FUNDED' || account.account_type === 'LIVE_EXPRESS'
 
             const updateThis = async (values: AccountFormValues) => {
               'use server'
@@ -218,7 +228,12 @@ export default async function AccountsPage() {
                       action={deleteAccount}
                     />
                   </div>
+                  {canPayout && (
+                    <PayoutModal accountId={account.id} accountName={account.name} />
+                  )}
                 </div>
+
+                <WithdrawalHistory withdrawals={accountWithdrawals} />
               </article>
             )
           })}

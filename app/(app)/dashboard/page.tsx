@@ -9,7 +9,7 @@ import {
   filterByDateRange,
   HEBREW_MONTHS,
 } from '@/lib/metrics'
-import type { Trade, Account } from '@/types'
+import type { Trade, Account, Withdrawal } from '@/types'
 import { formatDollar } from '@/lib/futures'
 import StatsGrid    from '@/components/dashboard/StatsGrid'
 import EquityCurve  from '@/components/charts/EquityCurve'
@@ -37,8 +37,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { accountId } = await searchParams
   const supabase = await createClient()
 
-  // ── Fetch accounts + trades + settings in parallel ─────────────────────
-  const [{ data: rawAccounts }, { data: rawTrades }, { data: rawSettings }] = await Promise.all([
+  // ── Fetch accounts + trades + withdrawals + settings in parallel ───────
+  const [
+    { data: rawAccounts },
+    { data: rawTrades },
+    { data: rawWithdrawals },
+    { data: rawSettings },
+  ] = await Promise.all([
     supabase
       .from('accounts')
       .select('*')
@@ -49,13 +54,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .order('entry_time', { ascending: false })
       .limit(500),
     supabase
+      .from('withdrawals')
+      .select('*')
+      .order('created_at', { ascending: false }),
+    supabase
       .from('user_settings')
       .select('daily_loss_warning')
       .maybeSingle(),
   ])
 
-  const allAccounts: Account[] = (rawAccounts as Account[] | null) ?? []
-  const allTrades: Trade[]     = (rawTrades   as Trade[]   | null) ?? []
+  const allAccounts:    Account[]    = (rawAccounts    as Account[]    | null) ?? []
+  const allTrades:      Trade[]      = (rawTrades      as Trade[]      | null) ?? []
+  const allWithdrawals: Withdrawal[] = (rawWithdrawals as Withdrawal[] | null) ?? []
 
   // ── Resolve active account ──────────────────────────────────────────────
   const account: Account | null =
@@ -64,10 +74,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     allAccounts[0] ??
     null
 
-  // ── Filter trades to the active account ────────────────────────────────
+  // ── Filter trades & withdrawals to the active account ──────────────────
   const trades: Trade[] = account
     ? allTrades.filter((t) => t.account_id === account.id)
     : allTrades
+  const withdrawals: Withdrawal[] = account
+    ? allWithdrawals.filter((w) => w.account_id === account.id)
+    : []
 
   // ── Date ranges ─────────────────────────────────────────────────────────
   const now            = new Date()
@@ -82,16 +95,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const allMetrics       = calculateMetrics(trades)
   const lastMonthMetrics = calculateMetrics(lastMonthTrades)
 
-  // ── Balance ──────────────────────────────────────────────────────────────
-  const portfolioSize = account?.portfolio_size ?? 0
-  const balance       = account?.current_balance
-    ?? (portfolioSize > 0 ? portfolioSize + allMetrics.totalNetPnl : 0)
+  // ── Balance & MLL (withdrawals-aware) ───────────────────────────────────
+  const portfolioSize    = account?.portfolio_size ?? 0
+  const totalWithdrawals = withdrawals.reduce((s, w) => s + w.amount, 0)
 
-  // ── Trailing MLL status ─────────────────────────────────────────────────
   const mllStatus =
     account && portfolioSize > 0 && account.starting_mll > 0
-      ? calculateMllStatus(trades, portfolioSize, account.starting_mll)
+      ? calculateMllStatus(trades, withdrawals, portfolioSize, account.starting_mll)
       : null
+
+  const balance = mllStatus?.currentBalance
+    ?? (portfolioSize > 0 ? portfolioSize + allMetrics.totalNetPnl - totalWithdrawals : 0)
 
   const balanceTrendPct: number | null =
     lastMonthMetrics.totalNetPnl !== 0 && portfolioSize > 0
@@ -184,12 +198,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         streakDays={streakDays}
         account={account}
         mllStatus={mllStatus}
+        totalWithdrawals={totalWithdrawals}
       />
 
       {/* Chart + Calendar row */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <EquityCurve trades={trades} account={account} title="עקומת הון יומית" />
+          <EquityCurve trades={trades} withdrawals={withdrawals} account={account} title="עקומת הון יומית" />
         </div>
         <CalendarGrid
           days={calendarDays}

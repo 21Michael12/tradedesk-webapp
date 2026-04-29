@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import SideNav from '@/components/layout/SideNav'
 import TopNav from '@/components/layout/TopNav'
 import { calculateMllStatus } from '@/lib/metrics'
-import type { Account, Trade } from '@/types'
+import type { Account, Trade, Withdrawal } from '@/types'
 
 export default async function AppLayout({
   children,
@@ -17,7 +17,7 @@ export default async function AppLayout({
 
   if (!user) redirect('/login')
 
-  const [{ data: rawAccounts }, { data: rawTrades }] = await Promise.all([
+  const [{ data: rawAccounts }, { data: rawTrades }, { data: rawWithdrawals }] = await Promise.all([
     supabase
       .from('accounts')
       .select('*')
@@ -27,10 +27,15 @@ export default async function AppLayout({
       .from('trades')
       .select('account_id, net_pnl, entry_time')
       .eq('user_id', user.id),
+    supabase
+      .from('withdrawals')
+      .select('account_id, amount, created_at')
+      .eq('user_id', user.id),
   ])
 
-  const accounts: Account[] = (rawAccounts as Account[] | null) ?? []
-  const trades:   Trade[]   = (rawTrades   as Trade[]   | null) ?? []
+  const accounts:    Account[]    = (rawAccounts    as Account[]    | null) ?? []
+  const trades:      Trade[]      = (rawTrades      as Trade[]      | null) ?? []
+  const withdrawals: Withdrawal[] = (rawWithdrawals as Withdrawal[] | null) ?? []
 
   // The trades/new page falls back to active → first account. Mirror that here
   // so the global "Add Trade" button reflects the correct blown state.
@@ -38,8 +43,11 @@ export default async function AppLayout({
   const targetTrades  = targetAccount
     ? trades.filter((t) => t.account_id === targetAccount.id)
     : []
+  const targetWithdrawals = targetAccount
+    ? withdrawals.filter((w) => w.account_id === targetAccount.id)
+    : []
   const targetMll = targetAccount
-    ? calculateMllStatus(targetTrades, targetAccount.portfolio_size, targetAccount.starting_mll)
+    ? calculateMllStatus(targetTrades, targetWithdrawals, targetAccount.portfolio_size, targetAccount.starting_mll)
     : null
 
   const addTradeDisabled = targetMll?.isBlown ?? false

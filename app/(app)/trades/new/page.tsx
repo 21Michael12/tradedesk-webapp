@@ -5,7 +5,7 @@ import TradeForm from '@/components/trades/TradeForm'
 import type { TradeFormProps } from '@/components/trades/TradeForm'
 import { calculateTradePnl } from '@/lib/futures'
 import { calculateMllStatus } from '@/lib/metrics'
-import type { Trade, FuturesSymbol } from '@/types'
+import type { Trade, Withdrawal, FuturesSymbol } from '@/types'
 
 export const metadata = { title: 'TradeDesk | עסקה חדשה' }
 
@@ -29,14 +29,14 @@ export default async function NewTradePage() {
   if (!account) redirect('/accounts')
 
   // Block trade creation when the active account is blown
-  const { data: rawTrades } = await supabase
-    .from('trades')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('account_id', account.id)
+  const [{ data: rawTrades }, { data: rawWithdrawals }] = await Promise.all([
+    supabase.from('trades').select('*').eq('user_id', user.id).eq('account_id', account.id),
+    supabase.from('withdrawals').select('*').eq('user_id', user.id).eq('account_id', account.id),
+  ])
 
-  const accountTrades = (rawTrades as Trade[] | null) ?? []
-  const mllStatus = calculateMllStatus(accountTrades, account.portfolio_size, account.starting_mll)
+  const accountTrades      = (rawTrades      as Trade[]      | null) ?? []
+  const accountWithdrawals = (rawWithdrawals as Withdrawal[] | null) ?? []
+  const mllStatus = calculateMllStatus(accountTrades, accountWithdrawals, account.portfolio_size, account.starting_mll)
 
   if (mllStatus.isBlown) redirect('/dashboard')
 

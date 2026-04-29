@@ -1,4 +1,4 @@
-import type { Trade, DashboardMetrics, CalendarDay, EquityPoint } from '@/types'
+import type { Trade, Withdrawal, DashboardMetrics, CalendarDay, EquityPoint } from '@/types'
 
 // ─── Core Analytics ──────────────────────────────────────────────────────────
 
@@ -181,41 +181,52 @@ export interface EquityMllPoint {
 }
 
 /**
- * Builds a per-day series of (balance, current MLL) from closed trades.
+ * Builds a per-day series of (balance, current MLL) from closed trades and
+ * withdrawals.
  *
- * - balance = portfolioSize + cumulative net_pnl through the day
- * - HWM is the running maximum equity over the curve
- * - currentMll = startingMll + max(0, HWM − portfolioSize)  (trails up only)
+ * - tradingEquity = portfolioSize + Σ net_pnl through day  (drives HWM)
+ * - balance       = tradingEquity − Σ withdrawals through day
+ * - HWM           is the running max of tradingEquity ONLY
+ *                 (withdrawals do NOT push it down — they only shrink the buffer)
+ * - currentMll    = startingMll + max(0, HWM − portfolioSize)
  */
 export function buildEquityMllSeries(
   trades: Trade[],
+  withdrawals: Withdrawal[],
   portfolioSize: number,
   startingMll: number,
 ): EquityMllPoint[] {
-  const closed = trades
-    .filter((t) => t.net_pnl !== null)
-    .sort((a, b) => new Date(a.entry_time).getTime() - new Date(b.entry_time).getTime())
+  const closed = trades.filter((t) => t.net_pnl !== null)
 
-  if (closed.length === 0) return []
-
-  // Aggregate net_pnl by date
-  const byDate = new Map<string, number>()
+  // Aggregate by date
+  const pnlByDate        = new Map<string, number>()
+  const withdrawalByDate = new Map<string, number>()
   for (const t of closed) {
     const d = t.entry_time.slice(0, 10)
-    byDate.set(d, (byDate.get(d) ?? 0) + (t.net_pnl ?? 0))
+    pnlByDate.set(d, (pnlByDate.get(d) ?? 0) + (t.net_pnl ?? 0))
+  }
+  for (const w of withdrawals) {
+    const d = w.created_at.slice(0, 10)
+    withdrawalByDate.set(d, (withdrawalByDate.get(d) ?? 0) + w.amount)
   }
 
-  const dates = [...byDate.keys()].sort()
+  const dates = Array.from(
+    new Set([...pnlByDate.keys(), ...withdrawalByDate.keys()])
+  ).sort()
+  if (dates.length === 0) return []
 
-  let cumulative = 0
-  let hwm        = portfolioSize
+  let cumPnl         = 0
+  let cumWithdrawals = 0
+  let hwm            = portfolioSize
   const points: EquityMllPoint[] = []
 
   for (const date of dates) {
-    cumulative += byDate.get(date) ?? 0
-    const balance = portfolioSize + cumulative
-    if (balance > hwm) hwm = balance
-    const mll = startingMll + Math.max(0, hwm - portfolioSize)
+    cumPnl         += pnlByDate.get(date)        ?? 0
+    cumWithdrawals += withdrawalByDate.get(date) ?? 0
+    const tradingEquity = portfolioSize + cumPnl
+    if (tradingEquity > hwm) hwm = tradingEquity
+    const balance = tradingEquity - cumWithdrawals
+    const mll     = startingMll + Math.max(0, hwm - portfolioSize)
     points.push({ date, balance, mll })
   }
 
@@ -253,14 +264,15 @@ export function aggregateEquityMllSeries(
 // ─── Trailing Maximum Loss Limit (MLL) ───────────────────────────────────────
 
 export interface MllStatus {
-  startingMll:    number  // initial floor at account creation
-  currentMll:     number  // floor after trailing
-  currentBalance: number  // portfolio_size + Σ net_pnl
-  hwm:            number  // highest equity ever reached
-  trailDistance:  number  // portfolio_size − startingMll (constant)
-  buffer:         number  // currentBalance − currentMll  (≥ 0 = alive)
-  usedPct:        number  // 0 = at HWM, 100 = blown
-  isBlown:        boolean
+  startingMll:      number  // initial floor at account creation
+  currentMll:       number  // floor after trailing
+  currentBalance:   number  // portfolio_size + Σ net_pnl − Σ withdrawals
+  totalWithdrawals: number
+  hwm:              number  // highest TRADING equity ever reached (ignores withdrawals)
+  trailDistance:    number  // portfolio_size − startingMll (constant)
+  buffer:           number  // currentBalance − currentMll  (≥ 0 = alive)
+  usedPct:          number  // 0 = at HWM (clean), 100 = blown
+  isBlown:          boolean
 }
 
 /**
@@ -276,6 +288,7 @@ export interface MllStatus {
  */
 export function calculateMllStatus(
   trades: Trade[],
+  withdrawals: Withdrawal[],
   portfolioSize: number,
   startingMll: number,
 ): MllStatus {
@@ -287,15 +300,16 @@ export function calculateMllStatus(
   let hwm        = portfolioSize
   for (const t of closed) {
     cumulative += t.net_pnl ?? 0
-    const equity = portfolioSize + cumulative
+    const equity = portfolioSize + cumulative   // trading equity, excludes withdrawals
     if (equity > hwm) hwm = equity
   }
 
-  const currentBalance = portfolioSize + cumulative
-  const trailDistance  = portfolioSize - startingMll
-  const currentMll     = startingMll + Math.max(0, hwm - portfolioSize)
-  const buffer         = currentBalance - currentMll
-  const usedPct        = trailDistance > 0
+  const totalWithdrawals = withdrawals.reduce((s, w) => s + w.amount, 0)
+  const currentBalance   = portfolioSize + cumulative - totalWithdrawals
+  const trailDistance    = portfolioSize - startingMll
+  const currentMll       = startingMll + Math.max(0, hwm - portfolioSize)
+  const buffer           = currentBalance - currentMll
+  const usedPct          = trailDistance > 0
     ? Math.max(0, Math.min(100, ((trailDistance - buffer) / trailDistance) * 100))
     : 0
 
@@ -303,6 +317,7 @@ export function calculateMllStatus(
     startingMll,
     currentMll,
     currentBalance,
+    totalWithdrawals,
     hwm,
     trailDistance,
     buffer,

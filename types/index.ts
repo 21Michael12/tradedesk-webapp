@@ -50,6 +50,15 @@ export interface Account {
   updated_at: string
 }
 
+export interface Withdrawal {
+  id:          string
+  user_id:     string
+  account_id:  string
+  amount:      number
+  description: string | null
+  created_at:  string
+}
+
 export interface DashboardMetrics {
   totalNetPnl: number
   totalGrossPnl: number
